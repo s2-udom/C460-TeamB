@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ushr — Ticketing prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --paper:#F4F3EE; --ink:#141416; --muted:#5E5E66; --line:#DAD8D0; --field:#CFCDC4;
+  --orange:#FF5B22; --orange-soft:#FF8A5E; --white:#FFFFFF; --dark-line:#3A3A40; --dark-muted:#A9A7A0;
+  --display:'Bricolage Grotesque',system-ui,sans-serif; --body:Inter,system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+a{color:var(--ink)} a:hover{color:var(--muted)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+button{font:inherit;cursor:pointer}
+h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.02em}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.wrap{max-width:1360px;margin:0 auto;padding:40px}
+.row{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.grow{flex:999 1 560px;min-width:0}
+.side{flex:1 1 340px;max-width:420px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;padding:18px 40px;border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo span{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.02em;color:var(--ink)}
+.nav{display:flex;gap:4px;flex:1 1 auto;flex-wrap:wrap}
+.nav a{padding:10px 16px;border-radius:999px;text-decoration:none;font-weight:500;font-size:15px}
+.nav a.on{background:var(--ink);color:var(--paper);font-weight:600}
+.avatar{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--ink);background:var(--white);display:flex;align-items:center;justify-content:center}
+.back{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;text-decoration:none;padding:10px 4px}
+.spacer{flex:1 1 auto}
+.steps{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px;font-size:14px}
+.steps li{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--field);color:var(--muted)}
+.steps li.done{border-color:var(--ink);color:var(--ink);font-weight:500}
+.steps li.on{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:600}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:56px;padding:0 22px;border-radius:14px;border:0;text-decoration:none;font-weight:700;font-size:16px}
+.btn-ink{background:var(--ink);color:var(--paper)} .btn-ink:hover{color:var(--paper);opacity:.9}
+.btn-orange{background:var(--orange);color:var(--ink)} .btn-orange:hover{color:var(--ink);filter:brightness(1.05)}
+.btn-line{border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-weight:600}
+.btn-off{background:#2A2A2F;color:#8E8C85;cursor:not-allowed}
+.block{display:flex;width:100%}
+
+/* forms */
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:14px;font-weight:600}
+.input{height:52px;padding:0 16px;border:1.5px solid var(--field);border-radius:12px;background:var(--white);font:inherit;font-size:16px;color:var(--ink)}
+textarea.input{height:auto;padding:14px 16px;resize:vertical}
+.card{background:var(--white);border-radius:20px;padding:28px}
+.dark{background:var(--ink);color:var(--paper);border-radius:24px;padding:28px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.pills{display:flex;padding:4px;background:#E8E6DF;border-radius:999px}
+.pills button{flex:1;height:44px;padding:0 22px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-weight:500;font-size:15px}
+.pills button.on{background:var(--white);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(20,20,22,.12)}
+.tag{align-self:flex-start;font-family:var(--mono);font-size:12px;letter-spacing:.12em;padding:6px 10px;border-radius:6px}
+
+/* login */
+.login{min-height:100vh;display:flex;flex-wrap:wrap}
+.login-art{flex:1 1 520px;min-height:560px;background:var(--orange);padding:48px;display:flex;flex-direction:column;justify-content:space-between;gap:48px;position:relative;overflow:hidden}
+.login-art h1{font-weight:800;font-size:clamp(64px,8vw,104px);line-height:.9;letter-spacing:-.04em}
+.login-form{flex:1 1 520px;display:flex;align-items:center;justify-content:center;padding:48px 32px}
+.login-form>div{width:100%;max-width:420px;display:flex;flex-direction:column;gap:24px}
+.circle{position:absolute;border-radius:50%}
+.stub{display:flex;max-width:460px;background:var(--ink);color:var(--paper);border-radius:14px;position:relative;z-index:1}
+
+/* home */
+.hero-title{font-weight:800;font-size:clamp(44px,6vw,72px);line-height:.95;letter-spacing:-.035em;max-width:900px}
+.search{display:flex;flex-wrap:wrap;background:var(--white);border:1.5px solid var(--ink);border-radius:16px;overflow:hidden;max-width:980px}
+.search>div{display:flex;flex-direction:column;padding:12px 20px;border-right:1px solid var(--line)}
+.search label{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.search input,.search select{border:0;padding:4px 0 0;font:inherit;font-size:17px;background:transparent;color:var(--ink)}
+.chip{height:44px;padding:0 20px;border-radius:999px;border:1.5px solid var(--field);background:var(--white);font-weight:500;font-size:15px}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:600}
+.feature{display:flex;flex-wrap:wrap;text-decoration:none;color:var(--paper);background:var(--ink);border-radius:24px;overflow:hidden}
+.feature:hover{color:var(--paper)}
+.events{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:28px 24px}
+.ev{display:flex;flex-direction:column;gap:14px;text-decoration:none}
+.poster{position:relative;aspect-ratio:4/3;border-radius:18px;overflow:hidden}
+.poster .mark{position:absolute;left:20px;bottom:12px;font-family:var(--display);font-weight:800;font-size:64px;line-height:1;letter-spacing:-.04em}
+
+/* event */
+.event-hero{position:relative;min-height:420px;border-radius:28px;overflow:hidden;background:var(--orange);display:flex;align-items:flex-end;padding:48px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.fact{background:var(--white);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px}
+.fact span:first-child{font-size:13px;color:var(--muted);font-weight:600}
+.fact span:last-child{font-family:var(--display);font-weight:700;font-size:22px}
+.tier{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border:1.5px solid var(--dark-line);border-radius:14px}
+.sw{width:14px;height:14px;border-radius:4px;flex:none;display:inline-block}
+.know{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.know li{display:flex;gap:12px;align-items:flex-start;padding:16px;border:1.5px solid var(--line);border-radius:14px;font-size:15px;line-height:1.5}
+
+/* seats */
+.map{background:var(--white);border-radius:24px;padding:32px 24px 36px;overflow-x:auto}
+.map-inner{min-width:820px;display:flex;flex-direction:column;align-items:center;gap:28px}
+.stage{width:70%;height:54px;background:var(--ink);color:var(--paper);border-radius:0 0 50% 50%/0 0 100% 100%;display:flex;justify-content:center;padding-top:12px;font-family:var(--mono);font-size:13px;letter-spacing:.4em}
+.srow{display:flex;align-items:center;gap:6px}
+.rl{width:22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.seat{width:28px;height:28px;padding:0;border-radius:8px 8px 4px 4px;font-family:var(--mono);font-size:10px;display:flex;align-items:center;justify-content:center;background:var(--white);color:transparent;border:2.5px solid var(--c)}
+.seat:hover{background:color-mix(in srgb,var(--c) 18%,white)}
+.seat.sel{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.seat.sold{background:var(--field);border:0;cursor:not-allowed}
+.seat.held{background:var(--paper);border:2px dashed #8E8C85;cursor:not-allowed}
+.key{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:16px;font-size:14px}
+.key li{display:flex;align-items:center;gap:8px}
+.key i{width:18px;height:18px;border-radius:5px 5px 3px 3px;display:inline-block}
+.pick{display:flex;align-items:center;gap:14px;padding:14px;border:1.5px solid var(--dark-line);border-radius:14px}
+.x{width:44px;height:44px;border-radius:10px;border:0;background:#26262B;color:var(--paper);display:flex;align-items:center;justify-content:center}
+.totals{margin:0;display:flex;flex-direction:column;gap:10px;padding-top:18px;border-top:1px solid var(--dark-line);font-size:15px}
+.totals div{display:flex;justify-content:space-between;align-items:baseline}
+.totals dt{color:var(--dark-muted)} .totals dd{margin:0}
+.big{font-family:var(--display);font-weight:800;font-size:32px}
+
+/* checkout */
+.banner{padding:14px 40px}
+.banner .in{max-width:1360px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px}
+fieldset{margin:0;border:0}
+legend{float:left;padding:0;margin-bottom:4px;font-family:var(--display);font-weight:700;font-size:24px}
+legend+*{clear:both}
+.note{margin:0;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:#EEF2FF;color:#23347A;font-size:14px}
+
+/* ticket */
+.ticket{width:100%;max-width:900px;display:flex;flex-wrap:wrap;background:var(--ink);color:var(--paper);border-radius:26px;overflow:hidden;text-align:left}
+.ticket dt{font-size:12px;color:var(--dark-muted);font-weight:600;letter-spacing:.04em}
+.ticket dd{margin:4px 0 0;font-weight:600;font-size:17px}
+.qr{display:grid;grid-template-columns:repeat(21,8px);grid-auto-rows:8px;background:var(--white);padding:14px;border-radius:14px}
+
+/* tickets list */
+.tl{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px}
+.tl li{display:flex;flex-wrap:wrap;background:var(--white);border-radius:20px;overflow:hidden}
+.date{flex:0 0 120px;padding:18px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.status{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600}
+
+/* admin */
+.admin{min-height:100vh;display:flex;flex-wrap:wrap}
+.admin-nav{flex:1 1 240px;max-width:280px;background:var(--ink);color:var(--paper);padding:24px 18px;display:flex;flex-direction:column;gap:28px}
+.admin-nav ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.admin-nav a.item{display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;color:#C9C7BF;text-decoration:none;font-size:15px}
+.admin-nav a.item.on{background:var(--orange);color:var(--ink);font-weight:600}
+table{width:100%;min-width:640px;border-collapse:collapse;font-size:15px}
+th{text-align:left;color:var(--muted);font-size:13px;font-weight:600;padding:16px 20px;border-bottom:1px solid #E8E6DF}
+td{padding:16px 20px;border-bottom:1px solid #F0EEE8}
+
+@media (max-width:700px){
+  .top,.wrap{padding-left:20px;padding-right:20px}
+  .search>div{border-right:0;border-bottom:1px solid var(--line);flex-basis:100%!important}
+  .event-hero,.login-art{padding:28px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ---------- data ---------- */
+const EVENTS = [
+  { id:'ns',  name:'Night Swim', cat:'Music', when:'Sat 14 Nov', venue:'The Foundry', price:22, mark:'NS', bg:'#2B48D6', fg:'#F4F3EE', sh:'circle' },
+  { id:'pl',  name:'Paper Lanterns: a comedy hour', cat:'Comedy', when:'Sun 15 Nov', venue:'Old Tram Depot', price:15, mark:'PL', bg:'#F2D64B', fg:'#141416', sh:'bar' },
+  { id:'gg',  name:'The Glass Garden', cat:'Theatre', when:'Wed 18 Nov', venue:'Canal Street Theatre', price:28, mark:'GG', bg:'#141416', fg:'#FF5B22', sh:'ring' },
+  { id:'lto', name:'Low Tide Orchestra', cat:'Music', when:'Fri 20 Nov', venue:'Riverside Hall', price:25, mark:'LTO', bg:'#FF5B22', fg:'#141416', sh:'circle' },
+  { id:'ee',  name:'East End Roller Derby', cat:'Sport', when:'Sat 21 Nov', venue:'Leyton Arena', price:12, mark:'EE', bg:'#7BC4A4', fg:'#141416', sh:'bar' },
+  { id:'ss',  name:'Saturday Science Show', cat:'Family', when:'Sat 28 Nov', venue:'Riverside Hall', price:9, mark:'SS', bg:'#E9E3D3', fg:'#2B48D6', sh:'ring' },
+  { id:'nst', name:'Northern Static', cat:'Music', when:'Thu 3 Dec', venue:'The Foundry', price:18, mark:'N/S', bg:'#141416', fg:'#F2D64B', sh:'bar' },
+  { id:'vh',  name:'Velvet Hours Jazz Club', cat:'Music', when:'Fri 4 Dec', venue:'Basement 9', price:20, mark:'VH', bg:'#8A3B6E', fg:'#F4F3EE', sh:'circle' }
+];
+const TIERS = [
+  { name:'Stalls',  price:45, color:'#FF5B22', rows:['A','B','C','D','E','F','G','H'], half:8,  note:'Rows A–H · best view' },
+  { name:'Circle',  price:35, color:'#4C7BF0', rows:['J','K','L','M'], half:10, note:'Rows J–M · raised' },
+  { name:'Balcony', price:25, color:'#D9B21F', rows:['N','O','P'], half:11, note:'Rows N–P · top tier' }
+];
+const FEE = 1.5, MAX = 6, HOLD_SECONDS = 600;
+
+/* seat statuses are fixed so the map looks the same every time */
+const SEATS = {};
+(function buildSeats(){
+  let ri = 0;
+  TIERS.forEach(t => t.rows.forEach(r => {
+    ri++;
+    for (let n = 1; n <= t.half * 2; n++) {
+      const sold = ((ri*13 + n*7) % 9 === 0) || ((ri*3 + n) % 11 === 0);
+      const held = !sold && ((ri*5 + n*11) % 17 === 0);
+      SEATS[r+'-'+n] = { row:r, num:n, tier:t, status: sold ? 'sold' : held ? 'held' : 'free' };
+    }
+  }));
+})();
+
+/* ---------- state ---------- */
+const state = {
+  authMode:'login', cat:'All', selected:['F-11','F-12'], limitHit:false,
+  holdEnds:null, ticketsTab:'up', order:null
+};
+let timer = null;
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const money = v => '£' + v.toFixed(2);
+const go = route => { location.hash = '#/' + route; };
+const icon = {
+  logo:(c='#FF5B22',s=26)=>`<svg width="${s}" height="${s}" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 7h22v4a3 3 0 0 0 0 6v4H3v-4a3 3 0 0 0 0-6z" fill="${c}"/></svg>`,
+  arrow:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`,
+  back:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>`,
+  check:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>`,
+  user:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#141416" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`,
+  clock:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+  search:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>`,
+  x:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`
+};
+
+function header(active){
+  const link = (r,label) => `<a href="#/${r}" class="${active===r?'on':''}" ${active===r?'aria-current="page"':''}>${label}</a>`;
+  return `<header class="top">
+    <a class="logo" href="#/home">${icon.logo()}<span>ushr</span></a>
+    <nav class="nav" aria-label="Main">${link('home','Events')}${link('tickets','My tickets')}${link('admin','Admin')}</nav>
+    <a class="avatar" href="#/login" aria-label="Account">${icon.user}</a>
+  </header>`;
+}
+function stepsHeader(step, backRoute, backLabel){
+  const s = (i,label) => {
+    const cls = i < step ? 'done' : i === step ? 'on' : '';
+    const mark = i < step ? icon.check : `<span class="mono">${i}</span>`;
+    return `<li class="${cls}" ${i===step?'aria-current="step"':''}>${mark}${label}</li>`;
+  };
+  return `<header class="top">
+    <a class="logo" href="#/home">${icon.logo()}<span>ushr</span></a>
+    ${backRoute ? `<a class="back" href="#/${backRoute}">${icon.back}${backLabel}</a>` : ''}
+    <div class="spacer"></div>
+    <ol class="steps" aria-label="Booking steps">${s(1,'Seats')}${s(2,'Checkout')}${s(3,'Ticket')}</ol>
+  </header>`;
+}
+function posterShape(e){
+  if (e.sh === 'circle') return `<div class="circle" style="right:-40px;top:-40px;width:180px;height:180px;background:${e.fg};opacity:.9"></div>`;
+  if (e.sh === 'ring') return `<div class="circle" style="left:24px;top:24px;width:130px;height:130px;border:3px solid ${e.fg}"></div>`;
+  return `<div style="position:absolute;left:0;right:0;top:46%;height:18px;background:${e.fg}"></div>`;
+}
+function selectedSeats(){ return state.selected.map(id => ({ id, ...SEATS[id] })); }
+function totals(){
+  const sub = selectedSeats().reduce((a,s)=>a+s.tier.price,0);
+  const fee = state.selected.length * FEE;
+  return { sub, fee, total: sub + fee };
+}
+
+/* ---------- pages ---------- */
+const pages = {};
+
+pages.login = () => {
+  const login = state.authMode === 'login';
+  return `<div class="login">
+    <section class="login-art">
+      <div class="logo">${icon.logo('#141416',30)}<span>ushr</span></div>
+      <div style="position:relative;z-index:1">
+        <h1>Your seat,<br>sorted.</h1>
+        <p style="margin:24px 0 0;font-size:19px;line-height:1.5;max-width:420px">Find a night out, pick the exact seat you want, and have it held for you while you pay.</p>
+      </div>
+      <div class="circle" style="right:-60px;top:120px;width:340px;height:340px;border:2px solid #141416" aria-hidden="true"></div>
+      <div class="circle" style="right:60px;top:240px;width:120px;height:120px;background:#141416" aria-hidden="true"></div>
+      <div class="stub">
+        <div style="flex:1;padding:20px 22px;display:flex;flex-direction:column;gap:6px">
+          <span class="mono" style="font-size:12px;letter-spacing:.12em;color:var(--orange-soft)">ADMIT ONE</span>
+          <span style="font-family:var(--display);font-weight:700;font-size:22px">Low Tide Orchestra</span>
+          <span style="font-size:14px;color:#C9C7BF">Fri 20 Nov · Riverside Hall</span>
+        </div>
+        <div style="border-left:2px dashed #5E5E66;margin:12px 0"></div>
+        <div class="mono" style="padding:20px 22px;display:flex;flex-direction:column;justify-content:center">
+          <span style="font-size:11px;color:#C9C7BF">ROW</span><span style="font-size:22px">F</span>
+          <span style="font-size:11px;color:#C9C7BF">SEAT</span><span style="font-size:22px">12</span>
+        </div>
+      </div>
+    </section>
+    <section class="login-form"><div>
+      <div>
+        <h2 style="font-weight:700;font-size:40px">${login ? 'Welcome back' : 'Create your account'}</h2>
+        <p class="muted" style="margin:8px 0 0">${login ? 'Sign in to see your tickets and saved events.' : 'It takes a minute. Your tickets live here.'}</p>
+      </div>
+      <div class="pills" role="tablist" aria-label="Account">
+        <button role="tab" class="${login?'on':''}" aria-selected="${login}" data-auth="login">Sign in</button>
+        <button role="tab" class="${!login?'on':''}" aria-selected="${!login}" data-auth="register">Create account</button>
+      </div>
+      <form id="auth" style="display:flex;flex-direction:column;gap:18px">
+        ${login ? '' : `<div class="field"><label for="name">Full name</label><input class="input" id="name" autocomplete="name" placeholder="Your name"></div>`}
+        <div class="field"><label for="email">Email</label><input class="input" id="email" type="email" autocomplete="email" placeholder="you@example.com"></div>
+        <div class="field">
+          <div style="display:flex;justify-content:space-between"><label for="pw">Password</label>${login ? '<a href="#/login" style="font-size:14px">Forgot password?</a>' : ''}</div>
+          <input class="input" id="pw" type="password" placeholder="At least 8 characters">
+        </div>
+        ${login ? '' : `<label style="display:flex;gap:10px;font-size:14px;color:var(--muted)"><input type="checkbox" style="width:18px;height:18px;margin:2px 0 0;accent-color:#141416">Email me when tickets go on sale for artists I follow</label>`}
+        <button class="btn btn-ink block" type="submit">${login ? 'Sign in' : 'Create account'} ${icon.arrow}</button>
+      </form>
+      <div style="display:flex;align-items:center;gap:14px;color:var(--muted);font-size:13px"><div style="flex:1;height:1px;background:var(--line)"></div>or<div style="flex:1;height:1px;background:var(--line)"></div></div>
+      <a class="btn btn-line block" href="#/home">Browse events as a guest</a>
+    </div></section>
+  </div>`;
+};
+
+pages.home = () => {
+  const cats = ['All','Music','Comedy','Theatre','Sport','Family'];
+  const shown = state.cat === 'All' ? EVENTS : EVENTS.filter(e => e.cat === state.cat);
+  return header('home') + `<main class="wrap" style="display:flex;flex-direction:column;gap:48px">
+    <section style="display:flex;flex-direction:column;gap:28px">
+      <h1 class="hero-title">What are you doing <span style="color:var(--orange)">this weekend?</span></h1>
+      <form class="search" role="search" onsubmit="return false">
+        <div style="flex:2 1 280px"><label for="q">Search</label><input id="q" type="search" placeholder="Artist, show or venue"></div>
+        <div style="flex:1 1 160px"><label for="city">Where</label><select id="city"><option>London</option><option>Manchester</option><option>Bristol</option></select></div>
+        <div style="flex:1 1 160px;border-right:0"><label for="when">When</label><select id="when"><option>This weekend</option><option>Next 7 days</option><option>This month</option><option>Any date</option></select></div>
+        <button class="btn-orange" style="min-width:140px;min-height:64px;border:0;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;flex:0 0 auto">${icon.search} Search</button>
+      </form>
+      <div role="group" aria-label="Category" style="display:flex;flex-wrap:wrap;gap:10px">
+        ${cats.map(c => `<button class="chip ${c===state.cat?'on':''}" aria-pressed="${c===state.cat}" data-cat="${c}">${c}</button>`).join('')}
+      </div>
+    </section>
+
+    <a class="feature" href="#/event">
+      <div style="flex:1 1 520px;min-height:380px;background:var(--orange);position:relative;overflow:hidden" aria-hidden="true">
+        <div class="circle" style="left:-80px;bottom:-120px;width:420px;height:420px;background:#141416"></div>
+        <div class="circle" style="left:180px;top:40px;width:220px;height:220px;border:3px solid #141416"></div>
+        <div style="position:absolute;right:40px;top:40px;width:140px;height:28px;background:#F4F3EE"></div>
+        <div style="position:absolute;right:40px;top:84px;width:90px;height:28px;background:#F4F3EE"></div>
+        <span style="position:absolute;right:40px;bottom:32px;font-family:var(--display);font-weight:800;font-size:120px;line-height:.8;color:#141416;letter-spacing:-.05em">LTO</span>
+      </div>
+      <div style="flex:1 1 420px;padding:44px;display:flex;flex-direction:column;justify-content:space-between;gap:32px">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <span class="tag" style="border:1px solid var(--orange-soft);color:var(--orange-soft)">FEATURED · SELLING FAST</span>
+          <h2 style="font-weight:800;font-size:56px;line-height:.95">Low Tide Orchestra</h2>
+          <p style="margin:0;font-size:17px;line-height:1.5;color:#C9C7BF;max-width:440px">A 40-piece orchestra playing film scores by the river, with the lights down and the doors shut.</p>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:4px"><b>Fri 20 Nov · 19:30</b><span style="color:#C9C7BF">Riverside Hall, London</span></div>
+          <span class="btn btn-orange" style="height:52px">From £25 ${icon.arrow}</span>
+        </div>
+      </div>
+    </a>
+
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:12px">
+        <h2 style="font-weight:700;font-size:36px">On sale now</h2>
+        <span class="muted">${shown.length} ${shown.length===1?'event':'events'} in London</span>
+      </div>
+      <div class="events">
+        ${shown.map(e => `<a class="ev" href="#/event">
+          <div class="poster" style="background:${e.bg}" aria-hidden="true">${posterShape(e)}<span class="mark" style="color:${e.fg}">${e.mark}</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span class="mono muted" style="font-size:12px;letter-spacing:.08em">${e.cat.toUpperCase()}</span>
+            <span style="font-family:var(--display);font-weight:700;font-size:22px;line-height:1.15">${e.name}</span>
+            <span class="muted" style="font-size:15px">${e.when} · ${e.venue}</span>
+            <span style="font-size:15px;font-weight:600;margin-top:4px">From £${e.price}</span>
+          </div>
+        </a>`).join('')}
+      </div>
+      ${shown.length ? '' : '<p class="muted" style="margin:0;padding:40px;border:1.5px dashed var(--field);border-radius:16px;text-align:center">Nothing in this category right now. Try another one.</p>'}
+    </section>
+  </main>
+  <footer class="muted" style="border-top:1px solid var(--line);padding:28px 40px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px"><span>ushr — tickets without the queue</span><span>Help · Terms · Privacy</span></footer>`;
+};
+
+pages.event = () => header('home') + `<main class="wrap" style="display:flex;flex-direction:column;gap:40px;padding-top:28px">
+  <nav aria-label="Breadcrumb" class="muted" style="font-size:14px;display:flex;gap:8px"><a href="#/home">Events</a><span>/</span><span>Music</span><span>/</span><span style="color:var(--ink)">Low Tide Orchestra</span></nav>
+  <section class="event-hero">
+    <div class="circle" style="right:-100px;top:-140px;width:560px;height:560px;background:#141416" aria-hidden="true"></div>
+    <div class="circle" style="right:300px;top:60px;width:260px;height:260px;border:3px solid #141416" aria-hidden="true"></div>
+    <div style="position:relative;display:flex;flex-direction:column;gap:16px;max-width:760px">
+      <span class="tag" style="background:#141416;color:#F4F3EE">MUSIC · ORCHESTRAL</span>
+      <h1 style="font-weight:800;font-size:clamp(56px,8vw,96px);line-height:.88;letter-spacing:-.045em">Low Tide<br>Orchestra</h1>
+      <p style="margin:0;font-size:19px;font-weight:500">Film scores, live, by the river.</p>
+    </div>
+  </section>
+  <div class="row" style="gap:40px">
+    <div class="grow" style="display:flex;flex-direction:column;gap:40px">
+      <section class="facts">
+        <div class="fact"><span>Date</span><span>Fri 20 Nov 2026</span></div>
+        <div class="fact"><span>Doors / Show</span><span>18:45 / 19:30</span></div>
+        <div class="fact"><span>Venue</span><span>Riverside Hall</span></div>
+        <div class="fact"><span>Age</span><span>All ages</span></div>
+      </section>
+      <section style="display:flex;flex-direction:column;gap:14px">
+        <h2 style="font-weight:700;font-size:32px">About the show</h2>
+        <p style="margin:0;font-size:18px;line-height:1.6;max-width:720px">Forty musicians, one long evening of film music. The set runs about two hours with a 20-minute interval. Seats are allocated, so the seat you pick is the seat you get.</p>
+      </section>
+      <section style="display:flex;flex-direction:column;gap:14px">
+        <h2 style="font-weight:700;font-size:32px">Good to know</h2>
+        <ul class="know">
+          <li>Mobile tickets only — show the QR code at the door</li>
+          <li>${icon.clock}<span>Seats are held for 10 minutes while you pay</span></li>
+          <li>Step-free access to the stalls</li>
+          <li>Maximum ${MAX} tickets per order</li>
+        </ul>
+      </section>
+    </div>
+    <aside class="dark side" style="display:flex;flex-direction:column;gap:22px">
+      <div><span class="mono" style="font-size:12px;letter-spacing:.12em;color:var(--orange-soft)">TICKETS</span><h2 style="font-weight:700;font-size:28px;margin-top:4px">Choose a price</h2></div>
+      <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+        ${TIERS.map(t => `<li class="tier"><span style="display:flex;align-items:center;gap:12px"><i class="sw" style="background:${t.color}"></i><span style="display:flex;flex-direction:column"><b>${t.name}</b><span style="font-size:13px;color:var(--dark-muted)">${t.note}</span></span></span><span style="font-family:var(--display);font-weight:700;font-size:22px">£${t.price}</span></li>`).join('')}
+      </ul>
+      <a class="btn btn-orange block" href="#/seats">Choose your seats ${icon.arrow}</a>
+      <p style="margin:0;font-size:13px;color:var(--dark-muted)">Prices include VAT. A booking fee is shown before you pay.</p>
+    </aside>
+  </div>
+</main>`;
+
+pages.seats = () => {
+  const picks = selectedSeats();
+  const t = totals();
+  const seatBtn = id => {
+    const s = SEATS[id]; const sel = state.selected.includes(id);
+    const cls = sel ? 'sel' : s.status === 'sold' ? 'sold' : s.status === 'held' ? 'held' : '';
+    const label = `Row ${s.row} seat ${s.num}, ${s.tier.name} £${s.tier.price}, ${sel?'selected':s.status==='free'?'available':s.status==='held'?'on hold':'sold'}`;
+    return `<button class="seat ${cls}" style="--c:${s.tier.color}" data-seat="${id}" aria-label="${label}" aria-pressed="${sel}" ${s.status!=='free'?'disabled':''}>${sel?s.num:''}</button>`;
+  };
+  return stepsHeader(1,'event','Back to event') + `<div class="wrap row" style="padding-top:32px">
+    <main class="grow" style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+        <div><h1 style="font-weight:800;font-size:44px;line-height:1;letter-spacing:-.03em">Pick your seats</h1><p class="muted" style="margin:8px 0 0">Low Tide Orchestra · Fri 20 Nov · Riverside Hall</p></div>
+        <ul class="key" aria-label="Seat key">
+          <li><i style="background:#fff;border:2.5px solid var(--orange)"></i>Available</li>
+          <li><i style="background:var(--ink)"></i>Your pick</li>
+          <li><i style="background:var(--paper);border:2px dashed #8E8C85"></i>On hold</li>
+          <li><i style="background:var(--field)"></i>Sold</li>
+        </ul>
+      </div>
+      <div class="map"><div class="map-inner">
+        <div class="stage">STAGE</div>
+        ${TIERS.map(tier => `<section aria-label="${tier.name}" style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><i class="sw" style="width:12px;height:12px;background:${tier.color}"></i><span class="mono muted" style="font-size:12px;letter-spacing:.14em">${tier.name.toUpperCase()} · £${tier.price}</span></div>
+          ${tier.rows.map(r => {
+            const ids = Array.from({length:tier.half*2},(_,i)=>r+'-'+(i+1));
+            return `<div class="srow"><span class="rl">${r}</span>${ids.slice(0,tier.half).map(seatBtn).join('')}<span style="width:34px"></span>${ids.slice(tier.half).map(seatBtn).join('')}<span class="rl">${r}</span></div>`;
+          }).join('')}
+        </section>`).join('')}
+      </div></div>
+    </main>
+    <aside class="dark side" style="display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="font-weight:700;font-size:26px">Your seats</h2><span class="mono" style="font-size:13px;color:var(--dark-muted)">${picks.length} / ${MAX}</span></div>
+      ${picks.length ? `<ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+        ${picks.map(p => `<li class="pick"><i class="sw" style="width:12px;height:12px;background:${p.tier.color}"></i><span style="flex:1;display:flex;flex-direction:column;gap:2px"><b>Row ${p.row} · Seat ${p.num}</b><span style="font-size:13px;color:var(--dark-muted)">${p.tier.name}</span></span><b>${money(p.tier.price)}</b><button class="x" data-remove="${p.id}" aria-label="Remove row ${p.row} seat ${p.num}">${icon.x}</button></li>`).join('')}
+      </ul>` : `<div style="padding:28px 20px;border:1.5px dashed #4A4A50;border-radius:14px;text-align:center;color:var(--dark-muted)">Tap a seat on the map to add it. You can pick up to ${MAX}.</div>`}
+      ${state.limitHit ? `<p style="margin:0;padding:12px 14px;border-radius:12px;background:#3A2A20;color:#FFB596;font-size:14px">That’s the maximum of ${MAX} seats for one order.</p>` : ''}
+      <dl class="totals">
+        <div><dt>Tickets</dt><dd>${money(t.sub)}</dd></div>
+        <div><dt>Booking fee</dt><dd>${money(t.fee)}</dd></div>
+        <div style="margin-top:6px"><dt style="color:var(--paper);font-weight:600">Total</dt><dd class="big">${money(t.total)}</dd></div>
+      </dl>
+      ${picks.length ? `<button class="btn btn-orange block" id="hold">Hold seats and continue ${icon.arrow}</button>` : `<span class="btn btn-off block" aria-disabled="true">Pick a seat to continue</span>`}
+      <p style="margin:0;display:flex;gap:10px;font-size:13px;color:var(--dark-muted);line-height:1.5">${icon.clock}<span>We hold your seats for 10 minutes once you continue. Nobody else can buy them in that time.</span></p>
+    </aside>
+  </div>`;
+};
+
+pages.checkout = () => {
+  if (!state.holdEnds || !state.selected.length) { setTimeout(()=>go('seats')); return ''; }
+  const picks = selectedSeats(); const t = totals();
+  return stepsHeader(2,'seats','Change seats') + `
+  <div class="banner" id="banner" role="status" aria-live="polite"><div class="in">
+    <div style="display:flex;align-items:center;gap:14px">${icon.clock}<b id="bannerText"></b></div>
+    <span class="mono" id="clock" style="font-size:28px"></span>
+    <a class="btn btn-ink" id="again" href="#/seats" style="height:44px;display:none">Pick seats again</a>
+  </div></div>
+  <div class="wrap row" style="padding-top:36px;gap:36px">
+    <main class="grow" style="display:flex;flex-direction:column;gap:28px">
+      <h1 style="font-weight:800;font-size:44px;line-height:1;letter-spacing:-.03em">Almost there</h1>
+      <form id="pay" style="display:flex;flex-direction:column;gap:28px">
+        <fieldset class="card" style="display:flex;flex-direction:column;gap:18px">
+          <legend>Your details</legend>
+          <div class="grid2"><div class="field"><label for="fn">First name</label><input class="input" id="fn" autocomplete="given-name"></div><div class="field"><label for="ln">Last name</label><input class="input" id="ln" autocomplete="family-name"></div></div>
+          <div class="field"><label for="ce">Email for your tickets</label><input class="input" id="ce" type="email" autocomplete="email" placeholder="you@example.com"></div>
+        </fieldset>
+        <fieldset class="card" style="display:flex;flex-direction:column;gap:18px">
+          <legend>Payment</legend>
+          <p class="note">Test mode — no real payment is taken.</p>
+          <div class="field"><label for="cc">Card number</label><input class="input mono" id="cc" inputmode="numeric" placeholder="1234 1234 1234 1234"></div>
+          <div class="grid2"><div class="field"><label for="ex">Expiry</label><input class="input mono" id="ex" placeholder="MM / YY"></div><div class="field"><label for="cv">Security code</label><input class="input mono" id="cv" inputmode="numeric" placeholder="CVC"></div></div>
+        </fieldset>
+      </form>
+    </main>
+    <aside class="side" style="background:var(--ink);color:var(--paper);border-radius:24px;overflow:hidden">
+      <div style="height:120px;background:var(--orange);position:relative;overflow:hidden" aria-hidden="true"><div class="circle" style="right:-30px;top:-60px;width:200px;height:200px;background:#141416"></div><span style="position:absolute;left:24px;bottom:14px;font-family:var(--display);font-weight:800;font-size:56px;line-height:1;color:#141416;letter-spacing:-.04em">LTO</span></div>
+      <div style="padding:26px 28px 28px;display:flex;flex-direction:column;gap:20px">
+        <div><h2 style="font-weight:700;font-size:24px">Low Tide Orchestra</h2><p style="margin:6px 0 0;color:var(--dark-muted)">Fri 20 Nov · 19:30 · Riverside Hall</p></div>
+        <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px">
+          ${picks.map(p => `<li style="display:flex;justify-content:space-between;padding:12px 14px;border:1.5px solid var(--dark-line);border-radius:12px"><span>${p.tier.name} · Row ${p.row} · Seat ${p.num}</span><span>${money(p.tier.price)}</span></li>`).join('')}
+        </ul>
+        <dl class="totals">
+          <div><dt>Tickets</dt><dd>${money(t.sub)}</dd></div>
+          <div><dt>Booking fee</dt><dd>${money(t.fee)}</dd></div>
+          <div style="margin-top:6px"><dt style="color:var(--paper);font-weight:600">Total</dt><dd class="big">${money(t.total)}</dd></div>
+        </dl>
+        <button class="btn btn-orange block" id="payBtn" form="pay" type="submit">Pay ${money(t.total)}</button>
+      </div>
+    </aside>
+  </div>`;
+};
+
+function qrCells(seed){
+  const N = 21, out = [];
+  const finder = (x,y) => {
+    for (const [fx,fy] of [[0,0],[N-7,0],[0,N-7]]) {
+      const dx=x-fx, dy=y-fy;
+      if (dx>=0&&dx<7&&dy>=0&&dy<7) return (dx===0||dx===6||dy===0||dy===6||(dx>=2&&dx<=4&&dy>=2&&dy<=4)) ? 1 : 0;
+      if (dx>=-1&&dx<=7&&dy>=-1&&dy<=7) return 0;
+    }
+    return -1;
+  };
+  for (let y=0;y<N;y++) for (let x=0;x<N;x++) {
+    const f = finder(x,y);
+    const on = f===-1 ? ((x*31+y*17+x*y*7+seed)%7)<3 : f===1;
+    out.push(`<div style="background:${on?'#141416':'#fff'}"></div>`);
+  }
+  return out.join('');
+}
+
+pages.confirmation = () => {
+  const o = state.order;
+  if (!o) { setTimeout(()=>go('home')); return ''; }
+  const first = o.seats[0];
+  return stepsHeader(3) + `<main class="wrap" style="max-width:1100px;display:flex;flex-direction:column;align-items:center;gap:40px;text-align:center;padding-top:56px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#141416" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></div>
+      <h1 style="font-weight:800;font-size:clamp(48px,7vw,72px);letter-spacing:-.04em;line-height:.95">You’re in.</h1>
+      <p class="muted" style="margin:0;font-size:18px">We’ve emailed your tickets. Order <span class="mono" style="color:var(--ink)">${o.ref}</span></p>
+    </div>
+    <article class="ticket" aria-label="Ticket 1 of ${o.seats.length}">
+      <div style="flex:999 1 420px;min-width:0;display:flex;flex-direction:column">
+        <div style="height:140px;background:var(--orange);position:relative;overflow:hidden" aria-hidden="true"><div class="circle" style="right:-40px;top:-100px;width:280px;height:280px;background:#141416"></div><div class="circle" style="right:200px;top:24px;width:92px;height:92px;border:3px solid #141416"></div></div>
+        <div style="padding:28px 32px 32px;display:flex;flex-direction:column;gap:22px">
+          <div><span class="mono" style="font-size:12px;letter-spacing:.14em;color:var(--orange-soft)">ADMIT ONE · TICKET 1 OF ${o.seats.length}</span><h2 style="margin-top:8px;font-weight:800;font-size:40px;letter-spacing:-.03em;line-height:1">Low Tide Orchestra</h2></div>
+          <dl style="margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:18px">
+            <div><dt>DATE</dt><dd>Fri 20 Nov</dd></div><div><dt>DOORS</dt><dd>18:45</dd></div><div><dt>VENUE</dt><dd>Riverside Hall</dd></div><div><dt>ENTRANCE</dt><dd>Door 2</dd></div>
+          </dl>
+        </div>
+      </div>
+      <div style="flex:1 1 280px;position:relative;border-left:2px dashed #4A4A50;padding:32px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+        <div class="circle" style="left:-16px;top:-16px;width:30px;height:30px;background:var(--paper)" aria-hidden="true"></div>
+        <div class="circle" style="left:-16px;bottom:-16px;width:30px;height:30px;background:var(--paper)" aria-hidden="true"></div>
+        <div class="mono" style="display:flex;gap:28px;text-align:center">
+          <div><div style="font-size:11px;color:var(--dark-muted)">SECTION</div><div style="font-size:20px">${first.tier.name.toUpperCase()}</div></div>
+          <div><div style="font-size:11px;color:var(--dark-muted)">ROW</div><div style="font-size:20px">${first.row}</div></div>
+          <div><div style="font-size:11px;color:var(--dark-muted)">SEAT</div><div style="font-size:20px">${first.num}</div></div>
+        </div>
+        <div class="qr" role="img" aria-label="Ticket QR code">${qrCells(first.num + first.row.charCodeAt(0))}</div>
+        <span class="mono" style="font-size:13px;color:var(--dark-muted);letter-spacing:.08em">TKT ${o.ref.slice(4)}-${first.row}${first.num}</span>
+      </div>
+    </article>
+    ${o.seats.length > 1 ? `<p class="muted" style="margin:-20px 0 0;font-size:14px">Your other ${o.seats.length-1} ticket${o.seats.length>2?'s are':' is'} in My tickets and your email.</p>` : ''}
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px">
+      <a class="btn btn-ink" href="#/confirmation">Add to phone wallet</a>
+      <a class="btn btn-line" href="#/confirmation">Download PDF</a>
+      <a class="btn btn-line" href="#/tickets">View my tickets</a>
+    </div>
+  </main>`;
+};
+
+pages.tickets = () => {
+  const up = state.ticketsTab === 'up';
+  const upcoming = [
+    { name:'Northern Static', venue:'The Foundry', time:'20:00', seats:'Standing · 1 ticket', m:'DEC', d:'3', wd:'Thu', bg:'#141416', fg:'#F2D64B' },
+    { name:'Velvet Hours Jazz Club', venue:'Basement 9', time:'21:00', seats:'Table 4 · 2 tickets', m:'DEC', d:'4', wd:'Fri', bg:'#8A3B6E', fg:'#F4F3EE' }
+  ];
+  if (state.order) upcoming.unshift({ name:'Low Tide Orchestra', venue:'Riverside Hall', time:'19:30', seats: state.order.seats.map(s=>`${s.tier.name} ${s.row}${s.num}`).join(', '), m:'NOV', d:'20', wd:'Fri', bg:'#FF5B22', fg:'#141416', mine:true });
+  const past = [
+    { name:'Paper Lanterns: a comedy hour', venue:'Old Tram Depot', time:'20:00', seats:'Row C · Seat 7', m:'OCT', d:'17', wd:'Sat', bg:'#E8E6DF', fg:'#5E5E66' },
+    { name:'East End Roller Derby', venue:'Leyton Arena', time:'18:00', seats:'Block B · 2 tickets', m:'SEP', d:'26', wd:'Sat', bg:'#E8E6DF', fg:'#5E5E66' }
+  ];
+  const list = up ? upcoming : past;
+  return header('tickets') + `<main class="wrap" style="max-width:1100px;display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:20px">
+      <h1 style="font-weight:800;font-size:56px;letter-spacing:-.035em;line-height:1">My tickets</h1>
+      <div class="pills" role="tablist" aria-label="Ticket list">
+        <button role="tab" class="${up?'on':''}" aria-selected="${up}" data-tab="up">Upcoming</button>
+        <button role="tab" class="${!up?'on':''}" aria-selected="${!up}" data-tab="past">Past</button>
+      </div>
+    </div>
+    <ul class="tl">${list.map(t => `<li>
+      <div class="date" style="background:${t.bg};color:${t.fg}"><span class="mono" style="font-size:13px;letter-spacing:.12em">${t.m}</span><span style="font-family:var(--display);font-weight:800;font-size:48px;line-height:1">${t.d}</span><span style="font-size:13px">${t.wd}</span></div>
+      <div style="flex:999 1 300px;min-width:0;padding:22px 26px;display:flex;flex-direction:column;justify-content:center;gap:6px"><span style="font-family:var(--display);font-weight:700;font-size:24px">${t.name}</span><span class="muted" style="font-size:15px">${t.venue} · ${t.time}</span><span style="font-size:15px">${t.seats}</span></div>
+      <div style="flex:1 1 220px;padding:22px 26px;display:flex;align-items:center;justify-content:flex-end;gap:14px;border-left:2px dashed #E1DFD7">
+        <span class="status" style="${up?'background:#E3F2EA;color:#1E5B3F':'background:#E8E6DF;color:#5E5E66'}">${up?'Ready':'Attended'}</span>
+        ${up && t.mine ? '<a class="btn btn-ink" style="height:46px;font-size:15px" href="#/confirmation">View ticket</a>' : ''}
+      </div></li>`).join('')}
+    </ul>
+  </main>`;
+};
+
+pages.admin = () => `<div class="admin">
+  <nav class="admin-nav" aria-label="Admin">
+    <a class="logo" href="#/home" style="color:var(--paper);padding:0 8px">${icon.logo('#FF5B22',24)}<span style="color:var(--paper);font-size:24px">ushr</span><span class="mono" style="font-size:11px;padding:3px 6px;border:1px solid #5E5E66;border-radius:4px;color:#C9C7BF">ADMIN</span></a>
+    <ul><li><a class="item" href="#/admin">Overview</a></li><li><a class="item on" href="#/admin" aria-current="page">Events</a></li><li><a class="item" href="#/admin">Venues</a></li><li><a class="item" href="#/admin">Orders</a></li></ul>
+  </nav>
+  <main class="grow" style="padding:36px 40px 72px;display:flex;flex-direction:column;gap:32px">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+      <div><p class="muted" style="margin:0;font-size:14px">Events / New</p><h1 style="margin-top:6px;font-weight:800;font-size:44px;line-height:1;letter-spacing:-.03em">Create an event</h1></div>
+      <div style="display:flex;gap:10px"><button class="btn btn-line" style="height:48px">Save draft</button><button class="btn btn-ink" style="height:48px">Put on sale</button></div>
+    </div>
+    <form class="row" style="gap:24px" onsubmit="return false">
+      <fieldset class="card grow" style="flex-basis:420px;display:flex;flex-direction:column;gap:18px">
+        <legend>Details</legend>
+        <div class="field"><label for="en">Event name</label><input class="input" id="en" placeholder="e.g. Low Tide Orchestra"></div>
+        <div class="grid2">
+          <div class="field"><label for="ec">Category</label><select class="input" id="ec"><option>Music</option><option>Comedy</option><option>Theatre</option><option>Sport</option><option>Family</option></select></div>
+          <div class="field"><label for="ev">Venue</label><select class="input" id="ev"><option>Riverside Hall</option><option>The Foundry</option><option>Old Tram Depot</option></select></div>
+          <div class="field"><label for="ed">Date and time</label><input class="input" id="ed" type="datetime-local"></div>
+        </div>
+        <div class="field"><label for="desc">Description</label><textarea class="input" id="desc" rows="4"></textarea></div>
+      </fieldset>
+      <fieldset class="card side" style="display:flex;flex-direction:column;gap:14px">
+        <legend>Price tiers</legend>
+        <p class="muted" style="margin:0;font-size:14px">Prices apply to each section of the venue’s seat map.</p>
+        ${TIERS.map((t,i)=>`<div style="display:flex;align-items:center;gap:12px"><i class="sw" style="background:${t.color}"></i><label for="p${i}" style="flex:1;font-weight:600">${t.name}</label><input class="input" id="p${i}" value="£${t.price}" style="width:96px;height:46px;text-align:right"></div>`).join('')}
+        <div class="field"><label for="lim">Max tickets per order</label><input class="input" id="lim" type="number" value="${MAX}" style="height:46px"></div>
+      </fieldset>
+    </form>
+    <section style="display:flex;flex-direction:column;gap:14px">
+      <h2 style="font-weight:700;font-size:26px">Your events</h2>
+      <div style="background:#fff;border-radius:20px;overflow-x:auto"><table>
+        <thead><tr><th scope="col">Event</th><th scope="col">Date</th><th scope="col">Venue</th><th scope="col">Status</th><th scope="col" style="text-align:right">Seats sold</th></tr></thead>
+        <tbody>
+          <tr><td><b>Low Tide Orchestra</b></td><td>20 Nov 2026</td><td>Riverside Hall</td><td><span class="status" style="background:#E3F2EA;color:#1E5B3F">On sale</span></td><td class="mono" style="text-align:right">[SOLD] / [CAPACITY]</td></tr>
+          <tr><td><b>Saturday Science Show</b></td><td>28 Nov 2026</td><td>Riverside Hall</td><td><span class="status" style="background:#E3F2EA;color:#1E5B3F">On sale</span></td><td class="mono" style="text-align:right">[SOLD] / [CAPACITY]</td></tr>
+          <tr><td><b>Winter Lights Choir</b></td><td>12 Dec 2026</td><td>Old Tram Depot</td><td><span class="status" style="background:#E8E6DF;color:#5E5E66">Draft</span></td><td class="mono" style="text-align:right">—</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+  </main>
+</div>`;
+
+/* ---------- checkout timer ---------- */
+function tick(){
+  const left = Math.max(0, Math.round((state.holdEnds - Date.now()) / 1000));
+  const banner = $('#banner'); if (!banner) return;
+  const m = Math.floor(left/60), s = left%60;
+  $('#clock').textContent = left ? `${m}:${String(s).padStart(2,'0')}` : '';
+  const urgent = left > 0 && left <= 120;
+  banner.style.background = !left ? '#CFCDC4' : urgent ? '#141416' : '#FF5B22';
+  banner.style.color = urgent ? '#F4F3EE' : '#141416';
+  $('#bannerText').textContent = !left ? 'Your hold has expired and the seats are back on sale.'
+    : urgent ? 'Less than 2 minutes left on your seats' : `Your ${state.selected.length} seat${state.selected.length>1?'s are':' is'} held for you`;
+  if (!left) {
+    $('#again').style.display = 'inline-flex';
+    const b = $('#payBtn'); b.disabled = true; b.className = 'btn btn-off block'; b.textContent = 'Hold expired';
+    clearInterval(timer);
+  }
+}
+
+/* ---------- router ---------- */
+function render(){
+  clearInterval(timer);
+  const route = (location.hash.replace('#/','') || 'login').split('?')[0];
+  const page = pages[route] || pages.login;
+  $('#app').innerHTML = page();
+  document.title = 'Ushr — ' + ({login:'Sign in',home:'Discover events',event:'Low Tide Orchestra',seats:'Choose your seats',checkout:'Checkout',confirmation:'You’re in',tickets:'My tickets',admin:'Admin'}[route] || 'Sign in');
+  if (route === 'checkout' && state.holdEnds) { tick(); timer = setInterval(tick, 1000); }
+}
+function rerender(){ const y = scrollY; render(); scrollTo(0, y); }
+
+window.addEventListener('hashchange', () => { render(); scrollTo(0,0); });
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-auth],[data-cat],[data-seat],[data-remove],[data-tab],#hold');
+  if (!t) return;
+  if (t.dataset.auth) { state.authMode = t.dataset.auth; return rerender(); }
+  if (t.dataset.cat) { state.cat = t.dataset.cat; return rerender(); }
+  if (t.dataset.tab) { state.ticketsTab = t.dataset.tab; return rerender(); }
+  if (t.dataset.seat || t.dataset.remove) {
+    const id = t.dataset.seat || t.dataset.remove;
+    if (state.selected.includes(id)) { state.selected = state.selected.filter(s => s !== id); state.limitHit = false; }
+    else if (state.selected.length >= MAX) { state.limitHit = true; }
+    else { state.selected = [...state.selected, id]; state.limitHit = false; }
+    return rerender();
+  }
+  if (t.id === 'hold') { state.holdEnds = Date.now() + HOLD_SECONDS * 1000; go('checkout'); }
+});
+
+document.addEventListener('submit', e => {
+  if (e.target.id === 'auth') { e.preventDefault(); go('home'); }
+  if (e.target.id === 'pay') {
+    e.preventDefault();
+    const ref = 'USH-' + Math.random().toString(36).slice(2,6).toUpperCase() + '-' + String(Math.floor(1000 + Math.random()*9000));
+    state.order = { ref, seats: selectedSeats() };
+    state.holdEnds = null;
+    go('confirmation');
+  }
+});
+
+render();
+</script>
+</body>
+</html>
