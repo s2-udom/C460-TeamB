@@ -1,66 +1,82 @@
 # Ticketing Application
 
-A Flask-based ticketing application for browsing events, selecting seats,
-holding seats temporarily, completing checkout, and receiving tickets.
+A Flask ticketing application for browsing events, selecting seats, placing
+temporary holds, checking out, and receiving digital tickets.
 
-This project uses a small number of top-level folders so the repository stays
-easy to navigate while the application is being built. New folders should only
-be added when they contain a clear, separate responsibility.
+## Project status
 
-## Simple repository structure
+This repository is currently a project scaffold. The folders and placeholder
+files are ready for the team, while the Flask application, database models,
+API routes, and deployment files still need to be implemented.
+
+## Repository structure
 
 ```text
 ticketing-app/
-├── app/                          # Person 1: Flask application
-│   ├── __init__.py               # Creates the Flask application
-│   ├── config.py                 # Application configuration
-│   ├── extensions.py             # Database and Flask extensions
-│   ├── models.py                 # Database models
-│   ├── routes.py                 # Page and API routes
-│   ├── services.py               # Booking, payment, and ticket logic
-│   ├── templates/                # Server-rendered HTML pages
-│   └── static/                   # CSS, JavaScript, and images
-│
-├── tests/                        # Person 3: all automated tests
-│   ├── test_app.py               # Basic application tests
-│   ├── test_api.py               # API and integration tests
-│   ├── test_booking.py           # Seat, hold, and checkout tests
-│   └── test_smoke.py             # Basic deployment checks
-│
-├── infrastructure/               # Person 2: deployment and operations
-│   ├── Dockerfile                # Container image definition
-│   ├── docker-compose.yml        # Local services
-│   ├── terraform/                # AWS infrastructure as code
-│   └── monitoring/               # Prometheus and Grafana configuration
-│
-├── scripts/                      # Small deployment and test helper scripts
-├── docs/                         # Architecture, API, deployment, and security docs
-├── .github/                      # Pull request templates and CI workflows
-│
-├── .env.example                  # Safe environment variable template
-├── .gitignore                    # Files Git must not track
-├── .dockerignore                 # Files excluded from Docker builds
-├── requirements.txt              # Runtime Python dependencies
-├── requirements-dev.txt          # Development and testing dependencies
-├── pytest.ini                    # Pytest configuration
-├── run.py                        # Local application entry point
-└── README.md                     # Project guide
+|-- app/                         # Application code and frontend assets
+|   |-- jobs/                    # Background tasks
+|   |-- models/                  # Database models
+|   |-- routes/                  # Page and API routes
+|   |-- services/                # Booking and payment business logic
+|   |-- static/                  # CSS, JavaScript, and images
+|   |   |-- css/
+|   |   |-- images/
+|   |   `-- js/
+|   `-- templates/               # Server-rendered HTML
+|       `-- index-prototype.html # Current UI prototype
+|
+|-- tests/                       # Automated tests
+|   |-- unit/                    # Individual functions and services
+|   |-- integration/             # API and database interactions
+|   |-- load/                    # Performance tests
+|   `-- smoke/                   # Basic deployment checks
+|
+|-- infrastructure/              # Docker, Compose, and Terraform files
+|   |-- docker/
+|   |-- compose/
+|   `-- terraform/
+|
+|-- scripts/                     # Deployment and pipeline helper scripts
+|   |-- infrastructure/
+|   `-- pipeline/
+|
+|-- ci/                          # Jenkins or other CI configuration
+|-- monitoring/                  # Prometheus and Grafana configuration
+|-- migrations/                  # Database migration history
+|-- docs/                        # Architecture, API, deployment, and security docs
+|   `-- incidents/               # Incident notes
+|-- .github/                     # GitHub collaboration files
+|
+|-- .env.example                 # Safe environment variable template
+|-- .gitignore                   # Files Git must ignore
+|-- .dockerignore                # Files Docker must ignore
+|-- requirements.txt             # Runtime dependencies
+|-- requirements-dev.txt         # Development and test dependencies
+`-- README.md                    # This guide
 ```
 
-## How the main folders work
+### Why are there `.gitkeep` files?
 
-| Folder | What belongs there |
+Git does not track empty directories. Each currently empty folder contains a
+`.gitkeep` placeholder so the planned structure can appear on GitHub. Replace
+the placeholder with a real file when work begins; the `.gitkeep` can then be
+removed.
+
+## What belongs where?
+
+| Location | Responsibility |
 | --- | --- |
-| `app/` | All Flask application code and frontend assets. Keep request handling in `routes.py`, database definitions in `models.py`, and reusable business rules in `services.py`. |
-| `tests/` | Every automated test. Use clear filenames instead of creating a new folder for every test type. |
-| `infrastructure/` | Docker, Compose, Terraform, monitoring, and deployment configuration. |
-| `scripts/` | Commands that help developers deploy, test, or maintain the project. |
-| `docs/` | Shared technical documentation and incident notes. |
-| `.github/` | Pull request templates, code ownership, and GitHub Actions workflows. |
-
-If a file becomes very large, it can later be split into a focused module. For
-example, `models.py` can become an `app/models/` package when the number of
-models justifies it. Starting flat keeps the initial project easier to learn.
+| `app/models/` | Database tables and relationships for users, events, seats, holds, orders, and tickets. |
+| `app/routes/` | HTTP endpoints. Routes should validate requests and call services. |
+| `app/services/` | Business rules such as seat locking, hold expiration, payments, and ticket generation. |
+| `app/jobs/` | Scheduled work, such as releasing expired holds. |
+| `app/templates/` | HTML pages rendered by Flask. |
+| `app/static/` | Browser assets: CSS, JavaScript, and images. |
+| `tests/` | Unit, integration, load, and smoke tests. |
+| `infrastructure/` | Container and AWS deployment configuration. |
+| `scripts/` | Repeatable deployment, rollback, and verification commands. |
+| `monitoring/` | Metrics, dashboards, and alert rules. |
+| `docs/` | Shared project decisions and technical documentation. |
 
 ## Application flow
 
@@ -68,42 +84,46 @@ models justifies it. Starting flat keeps the initial project easier to learn.
 Browser or API client
         |
         v
-     routes.py  --->  services.py  --->  models.py  --->  database
+     routes
         |
         v
- templates/ and static/
+    services  --->  models  --->  database
+        |
+        v
+ templates and static assets
 ```
 
-- `routes.py` receives requests and returns HTML pages or API responses.
-- `services.py` contains booking, seat-hold, payment, and ticket rules.
-- `models.py` describes the database tables and relationships.
-- `templates/` contains HTML; `static/` contains CSS, JavaScript, and images.
+Keep routes thin: receive the request, call a service, and return a response.
+Put reusable business logic in services and database definitions in models.
 
 ## Local setup
 
-From the repository root:
+Run these commands from the repository root.
 
-```bash
+### Windows PowerShell
+
+```powershell
 python -m venv .venv
-
-# Windows PowerShell
 .venv\Scripts\Activate.ps1
-
-# macOS/Linux
-# source .venv/bin/activate
-
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
+Copy-Item .env.example .env
 ```
 
-Create local configuration from the safe template:
+### macOS or Linux
 
 ```bash
-copy .env.example .env        # Windows
-# cp .env.example .env        # macOS/Linux
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+cp .env.example .env
 ```
 
-Start the application and run tests:
+The application entry point and tests will be runnable after the scaffold is
+implemented. The intended commands are:
 
 ```bash
 python run.py
@@ -111,17 +131,33 @@ pytest
 ```
 
 Do not commit `.env`, passwords, API keys, cloud credentials, Terraform state,
-or generated build files. `.env.example` is safe to commit; `.env` is not.
+or generated build files. Commit `.env.example` only.
 
 ## Team ownership
 
-| Owner | Areas |
+| Owner | Main responsibility |
 | --- | --- |
-| Person 1 | `app/`, `requirements.txt`, `run.py`, and database work |
-| Person 2 | `infrastructure/` and deployment scripts |
-| Person 3 | `tests/`, CI workflows, and monitoring |
-| Shared | `docs/`, `.github/`, `README.md`, `.gitignore`, `.env.example`, and `requirements-dev.txt` |
+| Person 1 | `app/`, `migrations/`, runtime dependencies, and application tests |
+| Person 2 | `infrastructure/` and infrastructure scripts |
+| Person 3 | `tests/`, `ci/`, `monitoring/`, and pipeline scripts |
+| Shared | `docs/`, `.github/`, `README.md`, `.gitignore`, `.env.example`, and development dependencies |
 
-Use a feature branch, keep pull requests focused, and run the relevant tests
-before merging into `develop`.
+## Git workflow
+
+Create a branch for each task and open pull requests against `develop`:
+
+```bash
+git switch develop
+git pull origin develop
+git switch -c feature/short-description
+
+# Make changes, then review them
+git status
+git add .
+git commit -m "Describe the change"
+git push -u origin feature/short-description
+```
+
+Before merging, run the relevant tests and include the results in the pull
+request. Do not commit directly to `develop`.
 
