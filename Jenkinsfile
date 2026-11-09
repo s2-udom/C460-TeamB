@@ -92,7 +92,12 @@ pipeline {
                     if (isUnix()) {
                         sh 'bash scripts/security/run-trivy-scan.sh'
                     } else {
-                        bat 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts\\security\\run-trivy-scan.ps1'
+                        // Jenkins runs as LocalSystem on the Windows agent.
+                        // Expose the standard pinned installation directory to
+                        // this build even when it is only in a user's PATH.
+                        withEnv(['PATH+TRIVY=C:\\Tools\\Trivy']) {
+                            bat 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts\\security\\run-trivy-scan.ps1'
+                        }
                     }
                 }
             }
