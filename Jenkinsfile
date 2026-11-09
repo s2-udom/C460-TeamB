@@ -84,6 +84,20 @@ pipeline {
             }
         }
 
+        stage('Trivy repository scan') {
+            // Trivy scans the checked-out repository. The runner verifies that the
+            // exact version in ci/trivy/version.txt is installed on the agent.
+            steps {
+                script {
+                    if (isUnix()) {
+                        sh 'bash scripts/security/run-trivy-scan.sh'
+                    } else {
+                        bat 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts\\security\\run-trivy-scan.ps1'
+                    }
+                }
+            }
+        }
+
         stage('AWS deployment guard') {
             // This fails closed if somebody requests AWS deployment before it is implemented.
             when {
@@ -108,7 +122,7 @@ Frontend file: ${env.FRONTEND_FILE}
 AWS deployment requested: ${params.DEPLOY_TO_AWS}
 """
                 )
-                archiveArtifacts artifacts: 'build-report.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'build-report.txt,trivy-repository-report.txt,trivy-critical-findings.json,trivy-version.txt', allowEmptyArchive: true
             }
         }
     }

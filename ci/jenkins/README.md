@@ -33,12 +33,13 @@ be the Windows host or a separately managed build container, but it must have:
 - Git
 - Node.js 22.11.0 or newer
 - npm
+- The pinned Trivy version documented in `../trivy/README.md`
 
 For a Windows host, create a permanent inbound agent in Jenkins, choose the
 WebSocket launch method, download the generated `agent.jar`, and run the
 command Jenkins provides from a local agent directory. WebSocket avoids
-requiring a public inbound port. The pipeline only needs Node/npm for the
-current frontend checks.
+requiring a public inbound port. The pipeline currently needs Node/npm for the
+frontend checks and the pinned Trivy CLI for the repository security scan.
 
 Do not mount `//var/run/docker.sock` into Jenkins. Docker image builds will be
 added only after a separate, approved build-agent strategy is available.
@@ -46,8 +47,8 @@ added only after a separate, approved build-agent strategy is available.
 ## Create the pipeline job
 
 Create a Pipeline job using **Pipeline script from SCM** and point it at the
-repository. Select the `feature/cicd-monitoring` branch and use the repository
-root `Jenkinsfile`. Add Git credentials in Jenkins if the repository is private.
+repository. Select the branch you are testing and use the repository root
+`Jenkinsfile`. Add Git credentials in Jenkins if the repository is private.
 
 The current pipeline runs:
 
@@ -56,6 +57,13 @@ The current pipeline runs:
 3. `npm ci`
 4. HTML, embedded CSS, and embedded JavaScript linting
 5. Frontend structural validation
+6. Pinned Trivy repository scanning for vulnerabilities, secrets, and supported
+   misconfigurations
+
+The Trivy stage fails if Trivy is missing, the installed version does not match
+`../trivy/version.txt`, the scan cannot run, or critical findings are detected.
+Jenkins archives the readable report and critical-finding JSON report with the
+build.
 
 `DEPLOY_TO_AWS` is false by default. Setting it to true currently fails
 closed with an explicit message; AWS stages must not be enabled until the
