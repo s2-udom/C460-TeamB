@@ -1,0 +1,7 @@
+# Copy to backend.hcl (which is gitignored) and replace the bucket name with the
+# `state_bucket` output from the bootstrap step.
+bucket       = "ticketing-tfstate-REPLACE_WITH_ACCOUNT_ID"
+key          = "staging/terraform.tfstate"
+region       = "eu-west-2"
+encrypt      = true
+use_lockfile = true
