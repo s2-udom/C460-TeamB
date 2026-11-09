@@ -1,0 +1,16 @@
+services:
+  jenkins:
+    # Pin the controller image so local Jenkins does not change unexpectedly.
+    image: jenkins/jenkins:2.580.2-jdk21
+    container_name: ticketing-jenkins
+    restart: unless-stopped
+    ports:
+      # Bind both ports to localhost; this setup is not a public Jenkins service.
+      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:50000:50000"
+    volumes:
+      # Preserve Jenkins jobs, plugins, and configuration across restarts.
+      - jenkins_home:/var/jenkins_home
+
+volumes:
+  jenkins_home:
