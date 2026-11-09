@@ -28,6 +28,11 @@ node_modules/
 .frontend-lint/
 .frontend-lint-*/
 
+# Trivy reports are generated in the Jenkins workspace and archived by Jenkins.
+trivy-repository-report.txt
+trivy-critical-findings.json
+trivy-version.txt
+
 # Editors and operating systems
 .idea/
 .vscode/
