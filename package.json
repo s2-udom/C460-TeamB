@@ -1,0 +1,22 @@
+{
+  "name": "ticketing-app-frontend-validation",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Reproducible validation for the ticketing frontend prototype",
+  "scripts": {
+    "lint:html": "htmlhint app/templates/index-prototype.html",
+    "lint:inline": "node scripts/frontend/lint-inline.mjs",
+    "lint:frontend": "npm run lint:html && npm run lint:inline",
+    "validate:frontend": "node scripts/frontend/validate-frontend.mjs",
+    "test": "npm run validate:frontend",
+    "ci:frontend": "npm run lint:frontend && npm test"
+  },
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5",
+    "htmlhint": "1.9.2",
+    "stylelint": "16.26.1"
+  }
+}

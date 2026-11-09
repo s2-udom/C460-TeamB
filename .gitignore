@@ -22,6 +22,11 @@ ENV/
 *.egg-info/
 dist/
 build/
+# Keep installed frontend tooling out of Git; package-lock.json is the source of truth.
+node_modules/
+# The inline-lint script creates and removes these temporary extraction folders.
+.frontend-lint/
+.frontend-lint-*/
 
 # Editors and operating systems
 .idea/
