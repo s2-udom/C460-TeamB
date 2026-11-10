@@ -75,3 +75,27 @@ variable "db_skip_final_snapshot" {
   type        = bool
   default     = true
 }
+
+variable "app_instance_type" {
+  description = "EC2 instance type for the app host. x86 so images built on a normal laptop or Jenkins agent run unchanged. t3.micro is cheaper but tight once Prometheus and Grafana run on the same host."
+  type        = string
+  default     = "t3.small"
+}
+
+variable "app_root_volume_gb" {
+  description = "Root disk size in GiB. Docker images and logs live here."
+  type        = number
+  default     = 20
+}
+
+variable "web_ingress_cidrs" {
+  description = "CIDR ranges allowed to reach the app on port 80. Narrow to your own IP while testing."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "ecr_force_delete" {
+  description = "Let terraform destroy delete the ECR repository even if it holds images. Turn off for production."
+  type        = bool
+  default     = true
+}

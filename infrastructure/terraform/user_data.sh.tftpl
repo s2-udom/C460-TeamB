@@ -1,0 +1,53 @@
+#!/bin/bash
+# First-boot setup for the app host (Amazon Linux 2023). Runs once via cloud-init.
+# If something looks wrong, read /var/log/cloud-init-output.log on the host.
+set -euxo pipefail
+
+# Docker
+dnf install -y docker
+systemctl enable --now docker
+usermod -aG docker ec2-user
+docker --version
+
+# Folder for the app's environment file
+install -d -m 0755 /opt/ticketing
+
+# Helper: writes /opt/ticketing/app.env containing DATABASE_URL, built from the password
+# that RDS keeps in Secrets Manager. Run it with: sudo /usr/local/bin/refresh-app-env
+cat > /usr/local/bin/refresh-app-env <<'EOF'
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import urllib.parse
+
+secret = json.loads(
+    subprocess.check_output(
+        [
+            "aws", "secretsmanager", "get-secret-value",
+            "--region", "${region}",
+            "--secret-id", "${secret_arn}",
+            "--query", "SecretString",
+            "--output", "text",
+        ]
+    )
+)
+
+# URL-encode so special characters in the generated password cannot break the URL.
+user = urllib.parse.quote(secret["username"], safe="")
+password = urllib.parse.quote(secret["password"], safe="")
+url = f"postgresql://{user}:{password}@${db_host}:${db_port}/${db_name}?sslmode=require"
+
+os.umask(0o077)
+with open("/opt/ticketing/app.env", "w") as f:
+    f.write(f"DATABASE_URL={url}\n")
+print("Wrote /opt/ticketing/app.env")
+EOF
+chmod 0755 /usr/local/bin/refresh-app-env
+
+# Docker Compose plugin (not packaged for Amazon Linux 2023)
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+docker compose version
