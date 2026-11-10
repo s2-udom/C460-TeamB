@@ -32,6 +32,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                // Remove a partial or stale .git directory before fetching.
+                // This keeps reused Windows agent workspaces safe to re-checkout.
+                deleteDir()
                 checkout scm
             }
         }
