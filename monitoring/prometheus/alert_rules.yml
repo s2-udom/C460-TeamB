@@ -1,0 +1,41 @@
+groups:
+  - name: ticketing-availability
+    rules:
+      - alert: TicketingHealthzDown
+        expr: probe_success{probe="healthz"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Ticketing application health check failed
+          description: The /healthz endpoint has failed for more than two minutes.
+
+      - alert: TicketingReadyzFailed
+        expr: probe_success{probe="readyz"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Ticketing application is not ready
+          description: The /readyz endpoint is not returning a successful response, usually indicating an application or database readiness problem.
+
+      - alert: TicketingHealthCheckSlow
+        expr: probe_duration_seconds{probe=~"healthz|readyz"} > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Ticketing health check is slow
+          description: A ticketing health endpoint has taken more than one second for five minutes.
+
+  - name: monitoring-stack
+    rules:
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Prometheus target is down
+          description: Prometheus has been unable to scrape {{ $labels.job }} for five minutes.
+
