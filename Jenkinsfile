@@ -55,7 +55,30 @@ pipeline {
                 }
             }
         }
-
+        stage('Diagnose Docker permissions') {
+            steps {
+                sh '''
+                    echo "===== USER ====="
+                    whoami
+        
+                    echo "===== USER ID ====="
+                    id
+        
+                    echo "===== GROUPS ====="
+                    groups
+        
+                    echo "===== DOCKER SOCKET ====="
+                    ls -l /var/run/docker.sock
+        
+                    echo "===== DOCKER SERVICE ====="
+                    sudo systemctl status docker --no-pager || true
+        
+                    echo "===== DOCKER TEST ====="
+                    docker ps
+                '''
+            }
+        }
+  
         stage('Install frontend validation dependencies') {
             steps {
                 script {
