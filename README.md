@@ -151,6 +151,17 @@ The default Grafana login is `admin` / `change-me-before-sharing`; set
 ports are available, you can set `PROMETHEUS_PORT=9090` and
 `GRAFANA_PORT=3000` instead.
 
+To enable Slack notifications, create `secrets/slack_webhook_url` locally and
+put the Slack incoming webhook URL in that file. The `secrets/` directory is
+ignored by Git. Update the `channel` value in
+`monitoring/alertmanager/alertmanager-slack.yml` if the webhook uses a
+different Slack channel, then start Alertmanager with the optional Slack
+Compose override:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.slack.yml up -d alertmanager
+```
+
 At this stage the app does not expose a Prometheus `/metrics` endpoint. The
 stack therefore measures the current availability signals:
 
