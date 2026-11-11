@@ -32,3 +32,4 @@ class Config:
         "pool_pre_ping": True,
     }
     HOLD_DURATION_MINUTES = int(os.environ.get("HOLD_DURATION_MINUTES", "10"))
+    METRICS_ENABLED = os.environ.get("METRICS_ENABLED", "true").lower() == "true"
