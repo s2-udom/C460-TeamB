@@ -1,0 +1,47 @@
+name: ticketing
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ticketing-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ticketing}
+      POSTGRES_USER: ${POSTGRES_USER:-ticketing}
+      # Dev-only default so `docker compose up` works from a clean clone.
+      # Production uses RDS with credentials from AWS Secrets Manager, never this value.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ticketing_dev_password}
+    ports:
+      # Bound to localhost only, so the DB is not exposed to the network.
+      # Change POSTGRES_PORT in .env if 5432 is already in use on your machine.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # $$ stops Compose substituting the value, so the container's own env is used.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build: .
+    container_name: ticketing-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ticketing}:${POSTGRES_PASSWORD:-ticketing_dev_password}@db:5432/${POSTGRES_DB:-ticketing}
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  pgdata:

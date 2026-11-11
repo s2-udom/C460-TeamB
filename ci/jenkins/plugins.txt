@@ -1,0 +1,7 @@
+# Core Git checkout and Declarative Pipeline support used by Jenkinsfile.
+git
+workflow-aggregator
+# Makes pipeline stages easier to inspect in the Jenkins UI.
+pipeline-stage-view
+# Allows future credentials to be injected without putting secrets in Git.
+credentials-binding

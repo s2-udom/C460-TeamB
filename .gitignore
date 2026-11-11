@@ -1,0 +1,56 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+# Keep installed frontend tooling out of Git; package-lock.json is the source of truth.
+node_modules/
+# The inline-lint script creates and removes these temporary extraction folders.
+.frontend-lint/
+.frontend-lint-*/
+
+# Trivy reports are generated in the Jenkins workspace and archived by Jenkins.
+trivy-repository-report.txt
+trivy-critical-findings.json
+trivy-version.txt
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local databases and generated files
+*.sqlite
+*.sqlite3
+instance/
+logs/
+
+# Terraform state, plans, and local provider data
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+backend.hcl
