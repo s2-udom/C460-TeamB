@@ -1,5 +1,42 @@
-// Local CI pipeline for the current frontend prototype.
-// AWS deployment is deliberately guarded and disabled until infrastructure is ready.
+// Ticketing CI/CD pipeline. Runs on the Linux EC2 agent (label ticketing-ec2).
+//
+// Gates, in order:  validate -> lint -> test -> repo scan -> build image -> image scan
+// Only if all gates pass and DEPLOY_TO_AWS is ticked:  push to ECR -> deploy via SSM -> smoke test
+// A failed smoke test rolls back to the previous image.
+//
+// There are no AWS keys in Jenkins. The agent's instance role supplies short-lived credentials.
+// Nothing connects in to the agent: it dials out to the controller and uses SSM for the deploy.
+
+// Runs the deploy document on the app host and waits for it to finish.
+// parameters is 'action=deploy,imageUri=<ecr image>' or 'action=rollback' (comma-separated,
+// no spaces: the AWS CLI rejects two space-separated entries after one --parameters).
+def runDeployDocument(String instanceId, String parameters) {
+    def commandId = sh(returnStdout: true, script: 'aws ssm send-command --document-name ' + env.DEPLOY_DOCUMENT +
+        ' --instance-ids ' + instanceId + ' --parameters "' + parameters + '"' +
+        ' --query Command.CommandId --output text').trim()
+    echo "SSM command ${commandId} sent to ${instanceId}"
+    def status = 'Pending'
+    timeout(time: 15, unit: 'MINUTES') {
+        waitUntil {
+            sleep(time: 5, unit: 'SECONDS')
+            try {
+                status = sh(returnStdout: true, script: 'aws ssm get-command-invocation --command-id ' + commandId +
+                    ' --instance-id ' + instanceId + ' --query Status --output text').trim()
+            } catch (err) {
+                status = 'Pending'   // the invocation can take a moment to appear
+            }
+            return !(status in ['Pending', 'InProgress', 'Delayed'])
+        }
+    }
+    sh 'aws ssm get-command-invocation --command-id ' + commandId + ' --instance-id ' + instanceId +
+        ' --query StandardOutputContent --output text'
+    if (status != 'Success') {
+        sh 'aws ssm get-command-invocation --command-id ' + commandId + ' --instance-id ' + instanceId +
+            ' --query StandardErrorContent --output text || true'
+        error("Deploy command finished with status ${status}")
+    }
+}
+
 pipeline {
     // Run work on a separate agent so the Jenkins controller is not used as a build worker.
     agent { label 'ticketing-agent' }
@@ -8,6 +45,7 @@ pipeline {
         skipDefaultCheckout(true)
         timestamps()
         disableConcurrentBuilds()
+        timeout(time: 45, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
     }
 
@@ -15,25 +53,25 @@ pipeline {
         booleanParam(
             name: 'DEPLOY_TO_AWS',
             defaultValue: false,
-            description: 'Deploy the application to EC2. Keep false until EC2 and Jenkins credentials are configured.'
-        )
-        string(
-            name: 'EC2_HOST',
-            defaultValue: '',
-            description: 'EC2 public DNS name or IP address used when DEPLOY_TO_AWS is true.'
+            description: 'Push the image to ECR and deploy it to the AWS app host. Gates always run; this only controls the release.'
         )
     }
 
     environment {
         FRONTEND_FILE = 'app/templates/index-prototype.html'
         CI = 'true'
+        // These match the names Terraform creates for the staging environment.
+        AWS_DEFAULT_REGION = 'eu-west-2'
+        ECR_REPOSITORY = 'ticketing-staging-app'
+        APP_HOST_NAME = 'ticketing-staging-app'
+        DEPLOY_DOCUMENT = 'ticketing-staging-deploy'
+        SMOKE_PATH = '/readyz'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Remove a partial or stale .git directory before fetching.
-                // This keeps reused Windows agent workspaces safe to re-checkout.
+                // Remove a partial or stale workspace before fetching.
                 deleteDir()
                 checkout scm
             }
@@ -45,133 +83,123 @@ pipeline {
                     if (!fileExists(env.FRONTEND_FILE)) {
                         error("Required frontend file was not found: ${env.FRONTEND_FILE}")
                     }
-                    if (isUnix()) {
-                        sh 'node --version'
-                        sh 'npm --version'
-                    } else {
-                        bat 'node --version'
-                        bat 'npm.cmd --version'
-                    }
                 }
-            }
-        }
-        stage('Diagnose Docker permissions') {
-            steps {
+                // Prints the tool versions the build actually used, so a failure can be reproduced.
                 sh '''
-                    echo "===== USER ====="
-                    whoami
-        
-                    echo "===== USER ID ====="
-                    id
-        
-                    echo "===== GROUPS ====="
-                    groups
-        
-                    echo "===== DOCKER SOCKET ====="
-                    ls -l /var/run/docker.sock
-        
-                    echo "===== DOCKER SERVICE ====="
-                    sudo systemctl status docker --no-pager || true
-        
-                    echo "===== DOCKER TEST ====="
-                    docker ps
+                    set -eu
+                    node --version
+                    npm --version
+                    docker --version
+                    aws --version
+                    echo "Running as: $(aws sts get-caller-identity --query Arn --output text)"
                 '''
             }
         }
-  
+     
         stage('Install frontend validation dependencies') {
             steps {
-                script {
-                    if (isUnix()) {
-                        sh 'npm ci'
-                    } else {
-                        bat 'npm.cmd ci'
-                    }
-                }
+                sh 'npm ci'
             }
         }
 
         stage('Frontend lint') {
             steps {
-                script {
-                    if (isUnix()) {
-                        sh 'npm run lint:frontend'
-                    } else {
-                        bat 'npm.cmd run lint:frontend'
-                    }
-                }
+                sh 'npm run lint:frontend'
             }
         }
 
         stage('Frontend validation') {
             steps {
-                script {
-                    if (isUnix()) {
-                        sh 'npm test'
-                    } else {
-                        bat 'npm.cmd test'
-                    }
-                }
+                sh 'npm test'
             }
         }
 
         stage('Trivy repository scan') {
-            // Trivy scans the checked-out repository. The runner verifies that the
-            // exact version in ci/trivy/version.txt is installed on the agent.
+            // Scans the source tree. The script checks the installed Trivy is the exact
+            // version in ci/trivy/version.txt, so the agent and developer laptops agree.
             steps {
-                script {
-                    if (isUnix()) {
-                        sh 'bash scripts/security/run-trivy-scan.sh'
-                    } else {
-                        // Jenkins runs as LocalSystem on the Windows agent.
-                        // Expose the standard pinned installation directory to
-                        // this build even when it is only in a user's PATH.
-                        withEnv(['PATH+TRIVY=C:\\Tools\\Trivy']) {
-                            bat 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts\\security\\run-trivy-scan.ps1'
-                        }
-                    }
-                }
+                sh 'bash scripts/security/run-trivy-scan.sh'
             }
         }
 
-        stage('Deploy to EC2') {
+        stage('Build image') {
+            steps {
+                script {
+                    def sha = sh(returnStdout: true, script: 'git rev-parse --short=8 HEAD').trim()
+                    env.IMAGE_TAG = 'build-' + env.BUILD_NUMBER + '-' + sha
+                    env.LOCAL_IMAGE = 'ticketing-app:' + env.IMAGE_TAG
+                }
+                // The app host is x86, so build for x86 whatever the agent is.
+                sh 'docker build --platform linux/amd64 --label git.commit=$(git rev-parse HEAD) -t "$LOCAL_IMAGE" .'
+            }
+        }
+
+        stage('Trivy image scan') {
+            // Blocks the release on a CRITICAL vulnerability that has a fix available.
+            steps {
+                sh '''
+                    set -eu
+                    trivy image --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed \
+                        --format table --output trivy-image-report.txt "$LOCAL_IMAGE"
+                    trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed "$LOCAL_IMAGE"
+                '''
+            }
+        }
+
+        stage('Push to ECR') {
             when {
                 expression { params.DEPLOY_TO_AWS }
             }
             steps {
                 script {
-                    if (!params.EC2_HOST?.trim()) {
-                        error('EC2_HOST is required when DEPLOY_TO_AWS is true.')
-                    }
+                    def repoUri = sh(returnStdout: true, script: 'aws ecr describe-repositories --repository-names ' +
+                        env.ECR_REPOSITORY + ' --query "repositories[0].repositoryUri" --output text').trim()
+                    env.IMAGE_URI = repoUri + ':' + env.IMAGE_TAG
+                    sh 'aws ecr get-login-password | docker login --username AWS --password-stdin ' + repoUri.split('/')[0]
+                    sh 'docker tag "$LOCAL_IMAGE" "$IMAGE_URI" && docker push "$IMAGE_URI"'
                 }
-                withCredentials([
-                    sshUserPrivateKey(
-                        credentialsId: 'ec2-deploy-key',
-                        keyFileVariable: 'EC2_KEY',
-                        usernameVariable: 'EC2_USER'
-                    )
-                ]) {
-                    script {
-                        if (isUnix()) {
-                            sh '''
-                                set -eu
-                                mkdir -p "$HOME/.ssh"
-                                ssh-keyscan -H "$EC2_HOST" >> "$HOME/.ssh/known_hosts"
-                                ssh -i "$EC2_KEY" "$EC2_USER@$EC2_HOST" "mkdir -p /opt/ticketing"
-                                scp -i "$EC2_KEY" -r app docker-compose.yml Dockerfile requirements.txt run.py "$EC2_USER@$EC2_HOST:/opt/ticketing/"
-                                ssh -i "$EC2_KEY" "$EC2_USER@$EC2_HOST" "cd /opt/ticketing && docker compose up -d --build"
-                            '''
-                        } else {
-                            powershell '''
-                                $ErrorActionPreference = "Stop"
-                                $target = "$env:EC2_USER@$env:EC2_HOST"
-                                $destination = "${target}:/opt/ticketing/"
+            }
+        }
 
-                                ssh -i "$env:EC2_KEY" -o StrictHostKeyChecking=accept-new $target "mkdir -p /opt/ticketing"
-                                scp -i "$env:EC2_KEY" -o StrictHostKeyChecking=accept-new -r app docker-compose.yml Dockerfile requirements.txt run.py $destination
-                                ssh -i "$env:EC2_KEY" -o StrictHostKeyChecking=accept-new $target "cd /opt/ticketing && docker compose up -d --build"
-                            '''
-                        }
+        stage('Deploy to AWS') {
+            when {
+                expression { params.DEPLOY_TO_AWS }
+            }
+            steps {
+                script {
+                    // Find the host by its Name tag, so a rebuilt instance needs no pipeline change.
+                    def host = sh(returnStdout: true, script: 'aws ec2 describe-instances --filters Name=tag:Name,Values=' +
+                        env.APP_HOST_NAME + ' Name=instance-state-name,Values=running' +
+                        ' --query "Reservations[0].Instances[0].[InstanceId,PublicIpAddress]" --output text').trim().split('\\s+')
+                    if (!host[0].startsWith('i-')) {
+                        error("No running EC2 instance with the Name tag ${env.APP_HOST_NAME}")
+                    }
+                    env.APP_INSTANCE_ID = host[0]
+                    env.APP_PUBLIC_IP = host[1]
+                    echo "Deploying ${env.IMAGE_URI} to ${env.APP_INSTANCE_ID} (${env.APP_PUBLIC_IP})"
+                    // The host pulls the image, restarts the container and checks /healthz.
+                    // If the new container does not come up it restores the previous one itself.
+                    runDeployDocument(env.APP_INSTANCE_ID, 'action=deploy,imageUri=' + env.IMAGE_URI)
+                }
+            }
+        }
+
+        stage('Smoke test') {
+            // Checked from outside the host, the way a user reaches it. /readyz includes the database.
+            when {
+                expression { params.DEPLOY_TO_AWS }
+            }
+            steps {
+                retry(6) {
+                    sleep(time: 5, unit: 'SECONDS')
+                    sh 'curl -fsS --max-time 5 "http://$APP_PUBLIC_IP$SMOKE_PATH"'
+                }
+            }
+            post {
+                failure {
+                    script {
+                        echo 'Smoke test failed, rolling back to the previous image.'
+                        runDeployDocument(env.APP_INSTANCE_ID, 'action=rollback')
                     }
                 }
             }
@@ -184,15 +212,18 @@ pipeline {
                 // Keep a small, truthful report for each Jenkins run.
                 writeFile(
                     file: 'build-report.txt',
-                    text: """Ticketing frontend CI report
+                    text: """Ticketing CI report
 Result: ${currentBuild.currentResult}
 Commit: ${env.GIT_COMMIT ?: 'unknown'}
-Frontend file: ${env.FRONTEND_FILE}
+Image: ${env.IMAGE_URI ?: (env.LOCAL_IMAGE ?: 'not built')}
 AWS deployment requested: ${params.DEPLOY_TO_AWS}
+Agent: ${env.NODE_NAME}
 """
                 )
-                archiveArtifacts artifacts: 'build-report.txt,trivy-repository-report.txt,trivy-critical-findings.json,trivy-version.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'build-report.txt,trivy-image-report.txt,trivy-repository-report.txt,trivy-critical-findings.json,trivy-version.txt', allowEmptyArchive: true
             }
+            // Free disk on the agent. Failures here must not fail the build.
+            sh 'docker image rm "$LOCAL_IMAGE" >/dev/null 2>&1 || true; docker image prune -f >/dev/null 2>&1 || true'
         }
     }
 }

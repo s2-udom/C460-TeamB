@@ -7,11 +7,15 @@ resource "aws_security_group" "app" {
   tags = { Name = "${local.name}-app-sg" }
 }
 
-resource "aws_vpc_security_group_egress_rule" "app_all_out" {
+resource "aws_vpc_security_group_egress_rule" "app_https_out" {
   security_group_id = aws_security_group.app.id
-  ip_protocol       = "-1"
-  cidr_ipv4         = "0.0.0.0/0"
-  description       = "Allow all outbound"
+
+  ip_protocol = "tcp"
+  from_port   = 443
+  to_port     = 443
+
+  cidr_ipv4   = "10.0.0.0/24"
+  description = "Allow HTTPS to required destinations"
 }
 
 # Database. The only way in is PostgreSQL from the app security group.
