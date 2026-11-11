@@ -75,5 +75,35 @@ resource "aws_eip" "app" {
 
   tags = { Name = "${local.name}-app-eip" }
 
-  depends_on = [aws_internet_gateway.main]
+  depends_on = [
+	aws_internet_gateway.main,
+	aws_iam_role_policy_attachment.app_ssm,
+	aws_iam_role_policy.app_access,
+	]
+}
+
+resource "aws_instance" "jenkins_agent" {
+ami                  = data.aws_ami.al2023.id
+instance_type        = "t3.small"
+subnet_id            = aws_subnet.public[0].id
+vpc_security_group_ids = [aws_security_group.app.id]
+iam_instance_profile = aws_iam_instance_profile.jenkins_agent.name
+
+metadata_options {
+http_endpoint               = "enabled"
+http_tokens                 = "required"
+http_put_response_hop_limit = 2
+}
+
+root_block_device {
+volume_size = 30
+volume_type = "gp3"
+encrypted   = true
+}
+
+tags = { Name = "${local.name}-jenkins-agent" }
+
+lifecycle {
+ignore_changes = [ami]
+}
 }
