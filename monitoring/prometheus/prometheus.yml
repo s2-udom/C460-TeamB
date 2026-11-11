@@ -42,6 +42,11 @@ scrape_configs:
       - targets:
           - alloy:12345
 
+  - job_name: ticketing-app
+    static_configs:
+      - targets:
+          - app:5000
+
   - job_name: ticketing-healthz
     metrics_path: /probe
     params:

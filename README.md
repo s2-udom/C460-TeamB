@@ -142,8 +142,8 @@ The local UIs are bound to localhost:
 
 | Service | Address | Purpose |
 | --- | --- | --- |
-| Grafana | http://localhost:3001 | Dashboards for health probes and logs |
-| Prometheus | http://localhost:9091 | Scraped probe metrics and alert rules |
+| Grafana | http://localhost:3001 | Dashboards for application, health, and log metrics |
+| Prometheus | http://localhost:9091 | Scrapes application and monitoring metrics and evaluates alert rules |
 | Alertmanager | http://localhost:9093 | Receives and groups Prometheus alerts |
 
 The default Grafana login is `admin` / `change-me-before-sharing`; set
@@ -162,21 +162,27 @@ Compose override:
 docker compose -f docker-compose.yml -f docker-compose.slack.yml up -d alertmanager
 ```
 
-At this stage the app does not expose a Prometheus `/metrics` endpoint. The
-stack therefore measures the current availability signals:
+The app exposes a Prometheus `/metrics` endpoint. Prometheus scrapes it as the
+`ticketing-app` target. The application metrics include:
+
+- Flask request totals, HTTP 4xx/5xx responses, request latency, exceptions,
+  Python runtime, and process CPU/memory metrics.
+- Tickets sold, hold requests, hold failures by reason, active holds, expired
+  holds, available seats, and sold seats.
+- Database query latency, database availability, and connections in use.
+
+The stack also measures these availability signals:
 
 - Blackbox Exporter probes `/healthz` and records whether the process responds,
   the HTTP status code, and probe duration.
 - Blackbox Exporter probes `/readyz` and records whether the app and database
   readiness check returns successfully, the HTTP status code, and probe
   duration.
-- Prometheus evaluates alerts for failed probes, slow probes, and down scrape
-  targets.
-- Grafana queries Prometheus for availability and latency, and Loki for Docker
-  container logs. Grafana Alloy forwards the Compose container logs to Loki.
-
-When Person 1 adds `/metrics`, add the app scrape target and application
-dashboards for request rate, errors, latency, tickets, and booking metrics.
+- Prometheus evaluates alerts for failed probes, application errors, high
+  latency, database failures, expired holds, and down scrape targets.
+- Grafana queries Prometheus for application, business, availability, and
+  latency metrics, and Loki for Docker container logs. Grafana Alloy forwards
+  the Compose container logs to Loki.
 
 Do not commit `.env`, passwords, API keys, cloud credentials, Terraform state,
 or generated build files. Commit `.env.example` only.
