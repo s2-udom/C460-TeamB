@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 
 import click
+from sqlalchemy import text
 
 from app.extensions import db
 from app.models import Event, EventSeat, Order, Seat, Ticket, Venue
@@ -22,9 +23,16 @@ EVENTS = [
 
 
 def _wipe_demo_data():
-    """Delete all rows, children first so foreign keys are never broken."""
-    for model in (Ticket, Order, EventSeat, Event, Seat, Venue):
-        db.session.query(model).delete()
+    """Delete all rows and restart the ID counters, so a fresh seed always
+    gives event 1, event 2 and event seats 1-120 again."""
+    if db.engine.dialect.name == "postgresql":
+        # TRUNCATE ... RESTART IDENTITY resets the SERIAL counters back to 1.
+        tables = ", ".join(m.__tablename__ for m in (Ticket, Order, EventSeat, Event, Seat, Venue))
+        db.session.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+    else:
+        # Other databases (e.g. SQLite in tests): delete children first.
+        for model in (Ticket, Order, EventSeat, Event, Seat, Venue):
+            db.session.query(model).delete()
 
 
 @click.command("seed")

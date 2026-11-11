@@ -15,9 +15,11 @@ def create_app(config_class=Config):
     from app import models  # noqa: F401  (registers models with Flask-Migrate)
     from app.routes.events import events_bp
     from app.routes.health import health_bp
+    from app.routes.holds import holds_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(events_bp)
+    app.register_blueprint(holds_bp)
 
     from app.cli import seed
 
