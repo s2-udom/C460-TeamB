@@ -38,7 +38,7 @@ def runDeployDocument(String instanceId, String parameters) {
 }
 
 pipeline {
-    // A separate agent, so the controller never runs build work.
+    // Run work on a separate agent so the Jenkins controller is not used as a build worker.
     agent { label 'ticketing-agent' }
 
     options {
@@ -95,8 +95,8 @@ pipeline {
                 '''
             }
         }
-
-        stage('Install dependencies') {
+     
+        stage('Install frontend validation dependencies') {
             steps {
                 sh 'npm ci'
             }

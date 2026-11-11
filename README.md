@@ -130,6 +130,60 @@ python run.py
 pytest
 ```
 
+### Local monitoring stack
+
+The Compose file also includes a local monitoring stack. Start it with:
+
+```bash
+docker compose up -d
+```
+
+The local UIs are bound to localhost:
+
+| Service | Address | Purpose |
+| --- | --- | --- |
+| Grafana | http://localhost:3001 | Dashboards for application, health, and log metrics |
+| Prometheus | http://localhost:9091 | Scrapes application and monitoring metrics and evaluates alert rules |
+| Alertmanager | http://localhost:9093 | Receives and groups Prometheus alerts |
+
+The default Grafana login is `admin` / `change-me-before-sharing`; set
+`GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` in `.env` first. If these
+ports are available, you can set `PROMETHEUS_PORT=9090` and
+`GRAFANA_PORT=3000` instead.
+
+To enable Slack notifications, create `secrets/slack_webhook_url` locally and
+put the Slack incoming webhook URL in that file. The `secrets/` directory is
+ignored by Git. Update the `channel` value in
+`monitoring/alertmanager/alertmanager-slack.yml` if the webhook uses a
+different Slack channel, then start Alertmanager with the optional Slack
+Compose override:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.slack.yml up -d alertmanager
+```
+
+The app exposes a Prometheus `/metrics` endpoint. Prometheus scrapes it as the
+`ticketing-app` target. The application metrics include:
+
+- Flask request totals, HTTP 4xx/5xx responses, request latency, exceptions,
+  Python runtime, and process CPU/memory metrics.
+- Tickets sold, hold requests, hold failures by reason, active holds, expired
+  holds, available seats, and sold seats.
+- Database query latency, database availability, and connections in use.
+
+The stack also measures these availability signals:
+
+- Blackbox Exporter probes `/healthz` and records whether the process responds,
+  the HTTP status code, and probe duration.
+- Blackbox Exporter probes `/readyz` and records whether the app and database
+  readiness check returns successfully, the HTTP status code, and probe
+  duration.
+- Prometheus evaluates alerts for failed probes, application errors, high
+  latency, database failures, expired holds, and down scrape targets.
+- Grafana queries Prometheus for application, business, availability, and
+  latency metrics, and Loki for Docker container logs. Grafana Alloy forwards
+  the Compose container logs to Loki.
+
 Do not commit `.env`, passwords, API keys, cloud credentials, Terraform state,
 or generated build files. Commit `.env.example` only.
 
@@ -160,4 +214,3 @@ git push -u origin feature/short-description
 
 Before merging, run the relevant tests and include the results in the pull
 request. Do not commit directly to `develop`.
-

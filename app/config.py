@@ -25,4 +25,11 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Fail fast instead of hanging when the database is unreachable,
+    # and check pooled connections still work before reusing them.
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "connect_args": {"connect_timeout": 3},
+        "pool_pre_ping": True,
+    }
     HOLD_DURATION_MINUTES = int(os.environ.get("HOLD_DURATION_MINUTES", "10"))
+    METRICS_ENABLED = os.environ.get("METRICS_ENABLED", "true").lower() == "true"
