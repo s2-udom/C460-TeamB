@@ -17,4 +17,8 @@ def create_app(config_class=Config):
 
     app.register_blueprint(health_bp)
 
+    from app.cli import seed
+
+    app.cli.add_command(seed)
+
     return app
