@@ -2,7 +2,7 @@
 // AWS deployment is deliberately guarded and disabled until infrastructure is ready.
 pipeline {
     // Run work on a separate agent so the Jenkins controller is not used as a build worker.
-    agent { label 'ticketing-ci' }
+    agent { label 'ticketing-agent' }
 
     options {
         skipDefaultCheckout(true)
