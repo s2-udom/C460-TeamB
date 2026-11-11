@@ -1,6 +1,7 @@
 """Health endpoints used by Docker, Jenkins smoke tests and monitoring."""
 from flask import Blueprint, jsonify
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 
@@ -19,6 +20,6 @@ def ready():
     try:
         db.session.execute(text("SELECT 1"))
         return jsonify({"status": "ready"}), 200
-    except Exception:
+    except SQLAlchemyError:
         db.session.rollback()
         return jsonify({"status": "unavailable"}), 503
