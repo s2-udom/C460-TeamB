@@ -15,7 +15,12 @@ pipeline {
         booleanParam(
             name: 'DEPLOY_TO_AWS',
             defaultValue: false,
-            description: 'Reserved for a future AWS deployment. Must remain false until AWS is configured.'
+            description: 'Deploy the application to EC2. Keep false until EC2 and Jenkins credentials are configured.'
+        )
+        string(
+            name: 'EC2_HOST',
+            defaultValue: '',
+            description: 'EC2 public DNS name or IP address used when DEPLOY_TO_AWS is true.'
         )
     }
 
@@ -27,6 +32,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                // Remove a partial or stale .git directory before fetching.
+                // This keeps reused Windows agent workspaces safe to re-checkout.
+                deleteDir()
                 checkout scm
             }
         }
@@ -103,13 +111,46 @@ pipeline {
             }
         }
 
-        stage('AWS deployment guard') {
-            // This fails closed if somebody requests AWS deployment before it is implemented.
+        stage('Deploy to EC2') {
             when {
                 expression { params.DEPLOY_TO_AWS }
             }
             steps {
-                error('AWS deployment is disabled in this local-only pipeline. Configure AWS infrastructure and credentials before enabling it.')
+                script {
+                    if (!params.EC2_HOST?.trim()) {
+                        error('EC2_HOST is required when DEPLOY_TO_AWS is true.')
+                    }
+                }
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'ec2-deploy-key',
+                        keyFileVariable: 'EC2_KEY',
+                        usernameVariable: 'EC2_USER'
+                    )
+                ]) {
+                    script {
+                        if (isUnix()) {
+                            sh '''
+                                set -eu
+                                mkdir -p "$HOME/.ssh"
+                                ssh-keyscan -H "$EC2_HOST" >> "$HOME/.ssh/known_hosts"
+                                ssh -i "$EC2_KEY" "$EC2_USER@$EC2_HOST" "mkdir -p /opt/ticketing"
+                                scp -i "$EC2_KEY" -r app docker-compose.yml Dockerfile requirements.txt run.py "$EC2_USER@$EC2_HOST:/opt/ticketing/"
+                                ssh -i "$EC2_KEY" "$EC2_USER@$EC2_HOST" "cd /opt/ticketing && docker compose up -d --build"
+                            '''
+                        } else {
+                            powershell '''
+                                $ErrorActionPreference = "Stop"
+                                $target = "$env:EC2_USER@$env:EC2_HOST"
+                                $destination = "${target}:/opt/ticketing/"
+
+                                ssh -i "$env:EC2_KEY" -o StrictHostKeyChecking=accept-new $target "mkdir -p /opt/ticketing"
+                                scp -i "$env:EC2_KEY" -o StrictHostKeyChecking=accept-new -r app docker-compose.yml Dockerfile requirements.txt run.py $destination
+                                ssh -i "$env:EC2_KEY" -o StrictHostKeyChecking=accept-new $target "cd /opt/ticketing && docker compose up -d --build"
+                            '''
+                        }
+                    }
+                }
             }
         }
     }

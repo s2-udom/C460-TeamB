@@ -65,9 +65,12 @@ The Trivy stage fails if Trivy is missing, the installed version does not match
 Jenkins archives the readable report and critical-finding JSON report with the
 build.
 
-`DEPLOY_TO_AWS` is false by default. Setting it to true currently fails
-closed with an explicit message; AWS stages must not be enabled until the
-ECR, EC2, IAM, SSM, health-check, and smoke-test details are available.
+`DEPLOY_TO_AWS` is false by default. When EC2 is ready, add an SSH Username
+with private key credential with the ID `ec2-deploy-key`, set `EC2_HOST` to the
+instance's public DNS name or IP, and enable `DEPLOY_TO_AWS`. The deployment
+stage copies the Docker application files to `/opt/ticketing` and runs
+`docker compose up -d --build` on the instance. The Jenkins agent must have
+an SSH client, and Jenkins must have the Credentials Binding plugin installed.
 
 ## Stop Jenkins
 
