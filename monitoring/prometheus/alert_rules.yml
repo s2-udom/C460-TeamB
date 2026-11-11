@@ -5,37 +5,104 @@ groups:
         expr: probe_success{probe="healthz"} == 0
         for: 2m
         labels:
+          service: ticketing
+          environment: local
           severity: critical
         annotations:
           summary: Ticketing application health check failed
           description: The /healthz endpoint has failed for more than two minutes.
+          runbook: Check the application container and its logs with docker compose logs app.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
 
       - alert: TicketingReadyzFailed
         expr: probe_success{probe="readyz"} == 0
         for: 2m
         labels:
+          service: ticketing
+          environment: local
           severity: critical
         annotations:
           summary: Ticketing application is not ready
           description: The /readyz endpoint is not returning a successful response, usually indicating an application or database readiness problem.
+          runbook: Check PostgreSQL and application logs with docker compose ps and docker compose logs db app.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
 
       - alert: TicketingHealthCheckSlow
         expr: probe_duration_seconds{probe=~"healthz|readyz"} > 1
         for: 5m
         labels:
+          service: ticketing
+          environment: local
           severity: warning
         annotations:
           summary: Ticketing health check is slow
           description: A ticketing health endpoint has taken more than one second for five minutes.
+          runbook: Check application logs and database response time.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
 
   - name: monitoring-stack
     rules:
       - alert: PrometheusTargetDown
-        expr: up == 0
+        expr: up{job=~"prometheus|blackbox-exporter|ticketing-healthz|ticketing-readyz"} == 0
         for: 5m
         labels:
+          service: monitoring
+          environment: local
           severity: warning
         annotations:
           summary: Prometheus target is down
           description: Prometheus has been unable to scrape {{ $labels.job }} for five minutes.
+          runbook: Check the target container and Prometheus targets at http://localhost:9091/targets.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
 
+      - alert: MonitoringServiceDown
+        expr: up{job=~"alertmanager|grafana|loki|alloy|blackbox-exporter"} == 0
+        for: 2m
+        labels:
+          service: monitoring
+          environment: local
+          severity: critical
+        annotations:
+          summary: Monitoring service is down
+          description: The {{ $labels.job }} monitoring service has been unavailable for more than two minutes.
+          runbook: Check monitoring containers with docker compose ps and docker compose logs {{ $labels.job }}.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
+
+      - alert: AlertmanagerSlackDeliveryFailed
+        expr: increase(alertmanager_notifications_failed_total{integration="slack"}[5m]) > 0
+        for: 1m
+        labels:
+          service: alertmanager
+          environment: local
+          severity: critical
+        annotations:
+          summary: Alertmanager failed to deliver a Slack notification
+          description: Alertmanager has recorded at least one failed Slack notification in the last five minutes.
+          runbook: Check Alertmanager logs with docker compose logs alertmanager and verify the Slack webhook secret.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
+
+      - alert: PrometheusRuleReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 1m
+        labels:
+          service: prometheus
+          environment: local
+          severity: critical
+        annotations:
+          summary: Prometheus configuration reload failed
+          description: Prometheus is running with its previous configuration because the latest reload failed.
+          runbook: Check Prometheus logs with docker compose logs prometheus.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
+
+      - alert: AlertmanagerConfigReloadFailed
+        expr: alertmanager_config_last_reload_successful == 0
+        for: 1m
+        labels:
+          service: alertmanager
+          environment: local
+          severity: critical
+        annotations:
+          summary: Alertmanager configuration reload failed
+          description: Alertmanager is running with its previous configuration because the latest reload failed.
+          runbook: Check Alertmanager logs with docker compose logs alertmanager.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability

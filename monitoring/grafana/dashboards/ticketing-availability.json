@@ -173,7 +173,7 @@
       },
       "targets": [
         {
-          "expr": "up{job=~\"prometheus|blackbox-exporter|ticketing-healthz|ticketing-readyz\"}",
+          "expr": "up{job=~\"prometheus|blackbox-exporter|alertmanager|grafana|loki|alloy|ticketing-healthz|ticketing-readyz\"}",
           "legendFormat": "{{job}}",
           "refId": "A"
         }

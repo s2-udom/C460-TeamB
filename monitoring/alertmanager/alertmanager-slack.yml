@@ -1,6 +1,9 @@
 global:
   resolve_timeout: 5m
 
+templates:
+  - /etc/alertmanager/templates/*.tmpl
+
 route:
   receiver: slack
   group_by:
@@ -16,3 +19,5 @@ receivers:
       - api_url_file: /etc/alertmanager/slack_webhook_url
         channel: "#sre-alerts"
         send_resolved: true
+        title: '{{ template "ticketing.slack.title" . }}'
+        text: '{{ template "ticketing.slack.text" . }}'
