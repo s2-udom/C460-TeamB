@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 
 from app.extensions import db
+from app.metrics import HOLD_FAILURES, HOLD_REQUESTS, SEAT_HOLDS
 from app.models import Event
 from app.services.holds import MAX_SEATS_PER_HOLD, SeatsUnavailable, hold_seats
 
@@ -9,12 +10,15 @@ holds_bp = Blueprint("holds", __name__, url_prefix="/api/v1")
 
 
 def _bad_request(message):
+    HOLD_FAILURES.labels(reason="invalid_request").inc()
     return jsonify({"error": message}), 400
 
 
 @holds_bp.route("/events/<int:event_id>/holds", methods=["POST"])
 def create_hold(event_id):
     """Hold the requested seats: 201 on success, 409 if any seat is taken."""
+    HOLD_REQUESTS.inc()
+
     # 1. Read the JSON body
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -44,19 +48,23 @@ def create_hold(event_id):
     # 4. The event must exist and be on sale
     event = db.session.get(Event, event_id)
     if event is None:
+        HOLD_FAILURES.labels(reason="event_not_found").inc()
         return jsonify({"error": "Event not found"}), 404
     if event.status != "on_sale":
+        HOLD_FAILURES.labels(reason="not_on_sale").inc()
         return jsonify({"error": f"Event is not on sale (status: {event.status})"}), 409
 
     # 5. Try to hold the seats
     try:
         held_ids, expires_at = hold_seats(event_id, event_seat_ids, customer)
     except SeatsUnavailable as error:
+        HOLD_FAILURES.labels(reason="seats_unavailable").inc()
         return jsonify({
             "error": "Some seats are no longer available",
             "unavailable": error.unavailable_ids,
         }), 409
 
+    SEAT_HOLDS.inc(len(held_ids))
     return jsonify({
         "event_id": event_id,
         "held": held_ids,
