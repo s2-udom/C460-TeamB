@@ -162,6 +162,19 @@ Compose override:
 docker compose -f docker-compose.yml -f docker-compose.slack.yml up -d alertmanager
 ```
 
+The Alertmanager image runs as the unprivileged `nobody` user. If a deployment
+sync job creates a generated `active.yml` as `root` with mode `0600`, repair its
+permissions before restarting Alertmanager:
+
+```bash
+sudo MONITORING_ROOT=/opt/monitoring \
+  bash scripts/monitoring/ensure-alertmanager-permissions.sh
+```
+
+Run this after every sync that replaces `active.yml`, or call the script from
+the sync job itself. Do not loosen the Slack webhook secret to world-readable
+permissions.
+
 The app exposes a Prometheus `/metrics` endpoint. Prometheus scrapes it as the
 `ticketing-app` target. The application metrics include:
 
