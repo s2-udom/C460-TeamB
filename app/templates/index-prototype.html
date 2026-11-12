@@ -14,7 +14,7 @@
   --display:'Bricolage Grotesque',system-ui,sans-serif; --body:Inter,system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+body{margin:0;padding-bottom:84px;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
 a{color:var(--ink)} a:hover{color:var(--muted)}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 button{font:inherit;cursor:pointer}
@@ -148,8 +148,7 @@ table{width:100%;min-width:640px;border-collapse:collapse;font-size:15px}
 th{text-align:left;color:var(--muted);font-size:13px;font-weight:600;padding:16px 20px;border-bottom:1px solid #E8E6DF}
 td{padding:16px 20px;border-bottom:1px solid #F0EEE8}
 
-/* prototype screen menu */
-body{padding-bottom:84px}
+/* prototype screen menu (body padding-bottom above leaves room for it) */
 #screens{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:4px;max-width:calc(100vw - 24px);overflow-x:auto;padding:6px;background:rgba(20,20,22,.94);border-radius:999px;box-shadow:0 8px 24px rgba(20,20,22,.25)}
 #screens span{font-size:11px;letter-spacing:.14em;color:#A9A7A0;padding:0 10px 0 12px;white-space:nowrap}
 #screens button{flex:none;height:40px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:#F4F3EE;font-size:14px;font-weight:500;white-space:nowrap}
@@ -241,10 +240,10 @@ let timer = null;
 
 /* ---------- API ---------- */
 async function api(path, options = {}){
-  const ctrl = new AbortController();
+  const ctrl = new window.AbortController();
   const t = setTimeout(() => ctrl.abort(), 6000);
   try {
-    const res = await fetch(API + path, { cache:'no-store', ...options, signal: ctrl.signal,
+    const res = await window.fetch(API + path, { cache:'no-store', ...options, signal: ctrl.signal,
       headers: { 'Content-Type':'application/json', ...(options.headers || {}) } });
     let body = null;
     try { body = await res.json(); } catch (e) { /* not JSON */ }
@@ -381,7 +380,7 @@ let currentRoute = (() => {
 })();
 const go = route => {
   currentRoute = ROUTES.includes(route) ? route : 'login';
-  try { history.replaceState(null, '', '#/' + currentRoute); } catch (e) { /* some previews block this; navigation still works */ }
+  try { window.history.replaceState(null, '', '#/' + currentRoute); } catch (e) { /* some previews block this; navigation still works */ }
   render();
   try { scrollTo(0, 0); } catch (e) {}
 };
