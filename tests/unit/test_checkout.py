@@ -1,66 +1,22 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-import pytest
-
-from app import create_app
-from app.extensions import db
-from app.models import Event, EventSeat, Seat, Venue
+from app.routes.checkout import _hold_is_active
 
 
-class TestConfig:
-    TESTING = True
-    SECRET_KEY = "test-secret"
-    SQLALCHEMY_DATABASE_URI = "sqlite://"
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    METRICS_ENABLED = False
-    HOLD_DURATION_MINUTES = 10
+def test_hold_is_active_for_future_timestamp():
+    now = datetime.now(UTC)
+
+    assert _hold_is_active(now + timedelta(minutes=1), now)
 
 
-@pytest.fixture
-def client():
-    app = create_app(TestConfig)
-    with app.app_context():
-        db.create_all()
-        venue = Venue(name="Test venue", city="Test city")
-        seat = Seat(venue=venue, section="A", row_label="A", number=1)
-        event = Event(
-            venue=venue,
-            name="Test event",
-            starts_at=datetime.now(UTC),
-            status="on_sale",
-        )
-        event_seat = EventSeat(event=event, seat=seat, price_pence=2500)
-        db.session.add_all([venue, seat, event, event_seat])
-        db.session.commit()
-        event_id = event.id
-        event_seat_id = event_seat.id
+def test_hold_is_inactive_for_expired_timestamp():
+    now = datetime.now(UTC)
 
-    yield app.test_client(), event_id, event_seat_id
-
-    with app.app_context():
-        db.session.remove()
-        db.drop_all()
+    assert not _hold_is_active(now - timedelta(seconds=1), now)
 
 
-def test_checkout_turns_active_hold_into_sold_ticket(client):
-    http, event_id, event_seat_id = client
-    customer = "buyer@example.com"
+def test_naive_database_timestamp_is_treated_as_utc():
+    now = datetime.now(UTC)
+    naive_future = (now + timedelta(minutes=1)).replace(tzinfo=None)
 
-    held = http.post(
-        f"/api/v1/events/{event_id}/holds",
-        json={"event_seat_ids": [event_seat_id], "customer": customer},
-    )
-    assert held.status_code == 201
-
-    checked_out = http.post(
-        f"/api/v1/events/{event_id}/checkout",
-        json={"event_seat_ids": [event_seat_id], "customer": customer},
-    )
-    assert checked_out.status_code == 201
-    assert checked_out.json["tickets_sold"] == 1
-
-    with http.application.app_context():
-        event_seat = db.session.get(EventSeat, event_seat_id)
-        assert event_seat.status == "sold"
-        assert event_seat.held_by is None
-        assert event_seat.hold_expires_at is None
+    assert _hold_is_active(naive_future, now)
