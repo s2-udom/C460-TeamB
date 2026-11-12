@@ -121,6 +121,18 @@ groups:
           runbook: Inspect PostgreSQL logs and the database query latency Grafana panel.
           dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
 
+      - alert: TicketingDatabasePoolNearCapacity
+        expr: ticketing_db_pool_connections_capacity{job="ticketing-app"} > 0 and (ticketing_db_pool_connections_in_use{job="ticketing-app"} / ticketing_db_pool_connections_capacity{job="ticketing-app"}) > 0.8
+        for: 5m
+        labels:
+          service: ticketing-database
+          severity: warning
+        annotations:
+          summary: Ticketing database connection pool is near capacity
+          description: More than 80% of the application database connection pool has been used for five minutes.
+          runbook: Check RDS connections and application traffic before the pool is exhausted.
+          dashboard: http://localhost:3001/d/ticketing-availability/ticketing-availability
+
   - name: monitoring-stack
     rules:
       - alert: PrometheusTargetDown

@@ -32,6 +32,15 @@ TICKETS_SOLD = Counter(
     "ticketing_tickets_sold",
     "Tickets sold (increments when checkout creates tickets).",
 )
+CHECKOUT_REQUESTS = Counter(
+    "ticketing_checkout_requests",
+    "Checkout attempts received.",
+)
+CHECKOUT_FAILURES = Counter(
+    "ticketing_checkout_failures",
+    "Checkout attempts rejected, by reason.",
+    ["reason"],
+)
 SEAT_HOLDS = Counter(
     "ticketing_seat_holds",
     "Seats successfully put on hold.",
@@ -79,6 +88,10 @@ DB_UP = Gauge(
 DB_POOL_CHECKED_OUT = Gauge(
     "ticketing_db_pool_connections_in_use",
     "Database connections currently checked out of the pool.",
+)
+DB_POOL_CAPACITY = Gauge(
+    "ticketing_db_pool_connections_capacity",
+    "Maximum database connections available to the application pool.",
 )
 
 _db_listeners_added = False
@@ -130,9 +143,13 @@ def _refresh_seat_gauges():
         db.session.remove()
 
     try:
-        DB_POOL_CHECKED_OUT.set(db.engine.pool.checkedout())
+        pool = db.engine.pool
+        DB_POOL_CHECKED_OUT.set(pool.checkedout())
+        pool_size = getattr(pool, "size", lambda: 0)()
+        max_overflow = getattr(pool, "_max_overflow", 0)
+        DB_POOL_CAPACITY.set(pool_size + max_overflow)
     except (AttributeError, SQLAlchemyError):
-        pass  # some pool types (e.g. SQLite in tests) don't report this
+        DB_POOL_CAPACITY.set(0)  # some pool types do not expose pool sizing
 
 
 def init_metrics(app):

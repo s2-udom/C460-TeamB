@@ -16,6 +16,7 @@ def create_app(config_class=Config):
     init_metrics(app)
 
     from app import models  # noqa: F401  (registers models with Flask-Migrate)
+    from app.routes.checkout import checkout_bp
     from app.routes.events import events_bp
     from app.routes.health import health_bp
     from app.routes.holds import holds_bp
@@ -23,6 +24,7 @@ def create_app(config_class=Config):
     app.register_blueprint(health_bp)
     app.register_blueprint(events_bp)
     app.register_blueprint(holds_bp)
+    app.register_blueprint(checkout_bp)
     app.register_blueprint(pages_bp)
 
     from app.cli import seed
@@ -30,6 +32,3 @@ def create_app(config_class=Config):
     app.cli.add_command(seed)
 
     return app
-    
-   
-    

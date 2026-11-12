@@ -676,9 +676,14 @@
           "expr": "ticketing_db_pool_connections_in_use{job=\"ticketing-app\"}",
           "legendFormat": "connections in use",
           "refId": "A"
+        },
+        {
+          "expr": "ticketing_db_pool_connections_capacity{job=\"ticketing-app\"}",
+          "legendFormat": "pool capacity",
+          "refId": "B"
         }
       ],
-      "description": "Number of database connections currently checked out by the application.",
+      "description": "Database connections currently in use compared with the application pool capacity.",
       "title": "Database — Connection pool usage",
       "type": "timeseries"
     }

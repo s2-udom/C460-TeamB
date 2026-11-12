@@ -908,7 +908,7 @@ document.addEventListener('click', e => {
   }
 });
 
-document.addEventListener('submit', e => {
+document.addEventListener('submit', async e => {
   if (e.target.id === 'auth') {
     e.preventDefault();
     const email = (document.getElementById('email') || {}).value || '';
@@ -917,6 +917,28 @@ document.addEventListener('submit', e => {
   }
   if (e.target.id === 'pay') {
     e.preventDefault();
+    if (live.mode === 'live') {
+        // The hold identity must match the identity used when the seats were held.
+        // Guests use the same fallback identity here; signed-in users use state.email.
+        const customer = state.email || 'guest@ushr.demo';
+      let res;
+      try {
+        res = await api(`/events/${LIVE_EVENT_ID}/checkout`, {
+          method:'POST',
+          body: JSON.stringify({ event_seat_ids: state.hold ? state.hold.ids.map(Number) : [], customer })
+        });
+      } catch (err) { res = null; }
+      if (!res || res.status !== 201) {
+        state.notice = { kind:'warn', text:(res && res.body && res.body.error) || 'Could not complete checkout. Please select your seats again.' };
+        await loadSeats();
+        return rerender();
+      }
+      state.order = { ref: res.body.order_ref, seats: selectedSeats() };
+      state.holdEnds = null;
+      state.hold = null;
+      await loadSeats();
+      return go('confirmation');
+    }
     const ref = 'USH-' + Math.random().toString(36).slice(2,6).toUpperCase() + '-' + String(Math.floor(1000 + Math.random()*9000));
     state.order = { ref, seats: selectedSeats() };
     state.holdEnds = null;
