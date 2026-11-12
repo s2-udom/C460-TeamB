@@ -23,6 +23,7 @@ def _database_url():
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
+    ENVIRONMENT = os.environ.get("ENVIRONMENT", "local")
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # Fail fast instead of hanging when the database is unreachable,

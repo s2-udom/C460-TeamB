@@ -6,7 +6,6 @@ groups:
         for: 2m
         labels:
           service: ticketing
-          environment: local
           severity: critical
         annotations:
           summary: Ticketing application health check failed
@@ -19,7 +18,6 @@ groups:
         for: 2m
         labels:
           service: ticketing
-          environment: local
           severity: critical
         annotations:
           summary: Ticketing application is not ready
@@ -32,7 +30,6 @@ groups:
         for: 5m
         labels:
           service: ticketing
-          environment: local
           severity: warning
         annotations:
           summary: Ticketing health check is slow
@@ -45,7 +42,6 @@ groups:
         for: 2m
         labels:
           service: ticketing
-          environment: local
           severity: critical
         annotations:
           summary: Ticketing application metrics are unavailable
@@ -58,7 +54,6 @@ groups:
         for: 5m
         labels:
           service: ticketing
-          environment: local
           severity: critical
         annotations:
           summary: Ticketing HTTP 5xx error rate is high
@@ -71,7 +66,6 @@ groups:
         for: 5m
         labels:
           service: ticketing
-          environment: local
           severity: warning
         annotations:
           summary: Ticketing HTTP p95 latency is high
@@ -84,7 +78,6 @@ groups:
         for: 2m
         labels:
           service: ticketing-database
-          environment: local
           severity: critical
         annotations:
           summary: Ticketing database is unavailable
@@ -97,7 +90,6 @@ groups:
         for: 5m
         labels:
           service: ticketing
-          environment: local
           severity: warning
         annotations:
           summary: Ticketing seat-hold failures are high
@@ -110,7 +102,6 @@ groups:
         for: 5m
         labels:
           service: ticketing
-          environment: local
           severity: warning
         annotations:
           summary: Expired seat holds remain in the database
@@ -123,7 +114,6 @@ groups:
         for: 5m
         labels:
           service: ticketing-database
-          environment: local
           severity: warning
         annotations:
           summary: Ticketing database query p95 latency is high
@@ -138,7 +128,6 @@ groups:
         for: 5m
         labels:
           service: monitoring
-          environment: local
           severity: warning
         annotations:
           summary: Prometheus target is down
@@ -151,7 +140,6 @@ groups:
         for: 2m
         labels:
           service: monitoring
-          environment: local
           severity: critical
         annotations:
           summary: Monitoring service is down
@@ -164,7 +152,6 @@ groups:
         for: 1m
         labels:
           service: alertmanager
-          environment: local
           severity: critical
         annotations:
           summary: Alertmanager failed to deliver a Slack notification
@@ -177,7 +164,6 @@ groups:
         for: 1m
         labels:
           service: prometheus
-          environment: local
           severity: critical
         annotations:
           summary: Prometheus configuration reload failed
@@ -190,7 +176,6 @@ groups:
         for: 1m
         labels:
           service: alertmanager
-          environment: local
           severity: critical
         annotations:
           summary: Alertmanager configuration reload failed

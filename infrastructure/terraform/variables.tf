@@ -8,6 +8,11 @@ variable "environment" {
   description = "Environment name (staging, production)."
   type        = string
   default     = "staging"
+
+  validation {
+    condition     = contains(["staging", "production"], var.environment)
+    error_message = "Terraform AWS deployments must use environment = staging or production. Local runs use Docker Compose and ENVIRONMENT=local."
+  }
 }
 
 variable "region" {
