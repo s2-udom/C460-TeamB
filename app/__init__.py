@@ -4,6 +4,7 @@ from flask import Flask
 from app.config import Config
 from app.extensions import db, migrate
 from app.metrics import init_metrics
+from app.routes.pages import pages_bp
 
 
 def create_app(config_class=Config):
@@ -22,9 +23,13 @@ def create_app(config_class=Config):
     app.register_blueprint(health_bp)
     app.register_blueprint(events_bp)
     app.register_blueprint(holds_bp)
+    app.register_blueprint(pages_bp)
 
     from app.cli import seed
 
     app.cli.add_command(seed)
 
     return app
+    
+   
+    
