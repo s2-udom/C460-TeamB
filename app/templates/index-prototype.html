@@ -148,6 +148,14 @@ table{width:100%;min-width:640px;border-collapse:collapse;font-size:15px}
 th{text-align:left;color:var(--muted);font-size:13px;font-weight:600;padding:16px 20px;border-bottom:1px solid #E8E6DF}
 td{padding:16px 20px;border-bottom:1px solid #F0EEE8}
 
+/* prototype screen menu */
+body{padding-bottom:84px}
+#screens{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:4px;max-width:calc(100vw - 24px);overflow-x:auto;padding:6px;background:rgba(20,20,22,.94);border-radius:999px;box-shadow:0 8px 24px rgba(20,20,22,.25)}
+#screens span{font-size:11px;letter-spacing:.14em;color:#A9A7A0;padding:0 10px 0 12px;white-space:nowrap}
+#screens button{flex:none;height:40px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:#F4F3EE;font-size:14px;font-weight:500;white-space:nowrap}
+#screens button:hover{background:#2A2A2F}
+#screens button.on{background:var(--orange);color:var(--ink);font-weight:700}
+
 @media (max-width:700px){
   .top,.wrap{padding-left:20px;padding-right:20px}
   .search>div{border-right:0;border-bottom:1px solid var(--line);flex-basis:100%!important}
@@ -157,6 +165,18 @@ td{padding:16px 20px;border-bottom:1px solid #F0EEE8}
 </head>
 <body>
 <div id="app"></div>
+
+<nav id="screens" aria-label="Prototype screens">
+  <span class="mono">SCREENS</span>
+  <button type="button" data-go="login">1 Sign in</button>
+  <button type="button" data-go="home">2 Home</button>
+  <button type="button" data-go="event">3 Event</button>
+  <button type="button" data-go="seats">4 Seats</button>
+  <button type="button" data-go="checkout">5 Checkout</button>
+  <button type="button" data-go="confirmation">6 Ticket</button>
+  <button type="button" data-go="tickets">7 My tickets</button>
+  <button type="button" data-go="admin">8 Admin</button>
+</nav>
 
 <script>
 /* ---------- data ---------- */
@@ -170,38 +190,201 @@ const EVENTS = [
   { id:'nst', name:'Northern Static', cat:'Music', when:'Thu 3 Dec', venue:'The Foundry', price:18, mark:'N/S', bg:'#141416', fg:'#F2D64B', sh:'bar' },
   { id:'vh',  name:'Velvet Hours Jazz Club', cat:'Music', when:'Fri 4 Dec', venue:'Basement 9', price:20, mark:'VH', bg:'#8A3B6E', fg:'#F4F3EE', sh:'circle' }
 ];
-const TIERS = [
-  { name:'Stalls',  price:45, color:'#FF5B22', rows:['A','B','C','D','E','F','G','H'], half:8,  note:'Rows A–H · best view' },
-  { name:'Circle',  price:35, color:'#4C7BF0', rows:['J','K','L','M'], half:10, note:'Rows J–M · raised' },
-  { name:'Balcony', price:25, color:'#D9B21F', rows:['N','O','P'], half:11, note:'Rows N–P · top tier' }
-];
 const FEE = 1.5, MAX = 6, HOLD_SECONDS = 600;
 
-/* seat statuses are fixed so the map looks the same every time */
-const SEATS = {};
-(function buildSeats(){
+/* ---------- seat data ----------
+   LIVE mode: the seat map, holds and hold timer come from the Flask API
+   (GET /api/v1/events/<id>/seats, POST /api/v1/events/<id>/holds).
+   DEMO mode: if the API can't be reached (e.g. the page is opened as a file
+   or from GitHub Pages), the original made-up seat map is used instead. */
+const API = '/api/v1';
+const LIVE_EVENT_ID = 1;               // "Low Tide Orchestra" in the seed data
+const SECTION_COLORS = { Stalls:'#FF5B22', Circle:'#4C7BF0', Balcony:'#D9B21F' };
+const live = { mode:'checking', eventName:null, signature:'', pollTimer:null };
+
+let TIERS = [];
+let SEATS = {};
+
+function buildDemoSeats(){
+  TIERS = [
+    { name:'Stalls',  price:45, color:'#FF5B22', rows:['A','B','C','D','E','F','G','H'], half:8 },
+    { name:'Circle',  price:35, color:'#4C7BF0', rows:['J','K','L','M'], half:10 },
+    { name:'Balcony', price:25, color:'#D9B21F', rows:['N','O','P'], half:11 }
+  ];
+  SEATS = {};
   let ri = 0;
-  TIERS.forEach(t => t.rows.forEach(r => {
-    ri++;
-    for (let n = 1; n <= t.half * 2; n++) {
-      const sold = ((ri*13 + n*7) % 9 === 0) || ((ri*3 + n) % 11 === 0);
-      const held = !sold && ((ri*5 + n*11) % 17 === 0);
-      SEATS[r+'-'+n] = { row:r, num:n, tier:t, status: sold ? 'sold' : held ? 'held' : 'free' };
-    }
-  }));
-})();
+  TIERS.forEach(t => {
+    t.rowList = t.rows.map(r => {
+      ri++;
+      const ids = [];
+      for (let n = 1; n <= t.half * 2; n++) {
+        const sold = ((ri*13 + n*7) % 9 === 0) || ((ri*3 + n) % 11 === 0);
+        const held = !sold && ((ri*5 + n*11) % 17 === 0);
+        const id = r + '-' + n;
+        SEATS[id] = { row:r, num:n, tier:t, status: sold ? 'sold' : held ? 'held' : 'free' };
+        ids.push(id);
+      }
+      return { label:r, ids };
+    });
+    t.note = `Rows ${t.rows[0]}–${t.rows[t.rows.length-1]}`;
+  });
+}
+buildDemoSeats();
 
 /* ---------- state ---------- */
 const state = {
   authMode:'login', cat:'All', selected:['F-11','F-12'], limitHit:false,
-  holdEnds:null, ticketsTab:'up', order:null
+  holdEnds:null, hold:null, notice:null, holding:false, email:null,
+  ticketsTab:'up', order:null
 };
 let timer = null;
+
+/* ---------- API ---------- */
+async function api(path, options = {}){
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const res = await fetch(API + path, { cache:'no-store', ...options, signal: ctrl.signal,
+      headers: { 'Content-Type':'application/json', ...(options.headers || {}) } });
+    let body = null;
+    try { body = await res.json(); } catch (e) { /* not JSON */ }
+    return { status: res.status, body };
+  } finally { clearTimeout(t); }
+}
+
+function myActiveHoldIds(){
+  return state.hold && state.hold.expiresAt > Date.now() ? new Set(state.hold.ids) : new Set();
+}
+
+/* Load the real seat map. Returns true if anything changed. */
+async function loadSeats(){
+  let res;
+  try { res = await api(`/events/${LIVE_EVENT_ID}/seats`); }
+  catch (e) { res = null; }
+
+  if (!res || res.status !== 200 || !res.body || !Array.isArray(res.body.seats)) {
+    if (live.mode === 'checking') live.mode = 'demo';   // never reached the API: stay in demo mode
+    else if (live.mode === 'live') state.notice = { kind:'warn', text:'Lost connection to the server. Seat statuses may be out of date.' };
+    return false;
+  }
+
+  const firstLoad = live.mode !== 'live';
+  live.mode = 'live';
+  live.eventName = res.body.event_name;
+  const mine = myActiveHoldIds();
+
+  // Group seats by section, then by row, keeping the order the API returns.
+  const tiers = [], tierByName = {};
+  const seats = {};
+  res.body.seats.forEach(s => {
+    let t = tierByName[s.section];
+    if (!t) {
+      t = tierByName[s.section] = { name:s.section, price:s.price_pence/100, color:SECTION_COLORS[s.section] || '#5E5E66', rowList:[], _rows:{} };
+      tiers.push(t);
+    }
+    let row = t._rows[s.row];
+    if (!row) { row = t._rows[s.row] = { label:s.row, ids:[] }; t.rowList.push(row); }
+    const id = String(s.event_seat_id);
+    row.ids.push(id);
+    const status = s.status === 'available' ? 'free'
+      : (s.status === 'held' && mine.has(id)) ? 'free'      // my own hold: still mine to pick
+      : s.status;                                          // 'held' by someone else, or 'sold'
+    seats[id] = { row:s.row, num:s.number, tier:t, status, eventSeatId:s.event_seat_id };
+  });
+  tiers.forEach(t => {
+    const rows = t.rowList.map(r => r.label);
+    t.rows = rows;
+    t.note = `Rows ${rows[0]}–${rows[rows.length-1]}`;
+    delete t._rows;
+  });
+
+  const signature = JSON.stringify(Object.entries(seats).map(([id, s]) => id + s.status));
+  const changed = signature !== live.signature;
+  TIERS = tiers; SEATS = seats; live.signature = signature;
+
+  if (firstLoad) {
+    state.selected = [];                        // demo seat ids mean nothing on the real map
+  } else {
+    // Someone else grabbed a seat I had picked (but not yet held)
+    const lost = state.selected.filter(id => !SEATS[id] || SEATS[id].status !== 'free');
+    if (lost.length) {
+      state.selected = state.selected.filter(id => !lost.includes(id));
+      state.notice = { kind:'warn', text:`${lost.map(seatName).join(', ')} ${lost.length > 1 ? 'were' : 'was'} just taken by someone else.` };
+    }
+  }
+  return changed || firstLoad;
+}
+
+function esc(v){
+  return String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+function seatName(id){
+  const s = SEATS[id];
+  return s ? `Row ${s.row} seat ${s.num}` : `Seat ${id}`;
+}
+
+function startSeatPolling(){
+  stopSeatPolling();
+  if (live.mode !== 'live') return;
+  live.pollTimer = setInterval(async () => {
+    if (currentRoute !== 'seats') return stopSeatPolling();
+    if (await loadSeats() && currentRoute === 'seats') rerender();
+  }, 5000);
+}
+function stopSeatPolling(){ clearInterval(live.pollTimer); live.pollTimer = null; }
+
+async function holdSelectedSeats(){
+  const mine = myActiveHoldIds();
+  const toHold = state.selected.filter(id => !mine.has(id));
+  const keep = state.selected.filter(id => mine.has(id));
+
+  // Everything picked is already held by me: straight to checkout.
+  if (!toHold.length) { state.holdEnds = state.hold.expiresAt; return go('checkout'); }
+
+  state.holding = true; state.notice = null; rerender();
+  let res;
+  try {
+    res = await api(`/events/${LIVE_EVENT_ID}/holds`, {
+      method:'POST',
+      body: JSON.stringify({ event_seat_ids: toHold.map(Number), customer: state.email || 'guest@ushr.demo' })
+    });
+  } catch (e) { res = null; }
+  state.holding = false;
+
+  if (res && res.status === 201) {
+    const expiresAt = Date.parse(res.body.expires_at);
+    const ids = res.body.held.map(String).concat(keep);
+    state.hold = { ids, expiresAt: keep.length ? Math.min(expiresAt, state.hold.expiresAt) : expiresAt };
+    state.holdEnds = state.hold.expiresAt;
+    return go('checkout');
+  }
+  if (res && res.status === 409 && res.body && res.body.unavailable) {
+    const gone = res.body.unavailable.map(String);
+    state.selected = state.selected.filter(id => !gone.includes(id));
+    state.notice = { kind:'warn', text:`Sorry, ${gone.map(seatName).join(', ')} ${gone.length > 1 ? 'were' : 'was'} just taken by someone else. Nothing was held, please pick again.` };
+  } else if (res && res.body && res.body.error) {
+    state.notice = { kind:'warn', text: res.body.error };
+  } else {
+    state.notice = { kind:'warn', text:'Could not reach the server. Please try again.' };
+  }
+  await loadSeats();
+  rerender();
+}
 
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const money = v => '£' + v.toFixed(2);
-const go = route => { location.hash = '#/' + route; };
+const ROUTES = ['login','home','event','seats','checkout','confirmation','tickets','admin'];
+let currentRoute = (() => {
+  try { const r = location.hash.replace('#/','').split('?')[0]; return ROUTES.includes(r) ? r : 'login'; } catch (e) { return 'login'; }
+})();
+const go = route => {
+  currentRoute = ROUTES.includes(route) ? route : 'login';
+  try { history.replaceState(null, '', '#/' + currentRoute); } catch (e) { /* some previews block this; navigation still works */ }
+  render();
+  try { scrollTo(0, 0); } catch (e) {}
+};
 const icon = {
   logo:(c='#FF5B22',s=26)=>`<svg width="${s}" height="${s}" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 7h22v4a3 3 0 0 0 0 6v4H3v-4a3 3 0 0 0 0-6z" fill="${c}"/></svg>`,
   arrow:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`,
@@ -239,7 +422,16 @@ function posterShape(e){
   if (e.sh === 'ring') return `<div class="circle" style="left:24px;top:24px;width:130px;height:130px;border:3px solid ${e.fg}"></div>`;
   return `<div style="position:absolute;left:0;right:0;top:46%;height:18px;background:${e.fg}"></div>`;
 }
-function selectedSeats(){ return state.selected.map(id => ({ id, ...SEATS[id] })); }
+function selectedSeats(){ return state.selected.filter(id => SEATS[id]).map(id => ({ id, ...SEATS[id] })); }
+function modeBadge(){
+  if (live.mode === 'live') return `<p style="margin:10px 0 0;display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#E3F2EA;color:#1E5B3F;font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:#1E9E5A"></span>Live: real seats from the database, updates every 5s</p>`;
+  if (live.mode === 'demo') return `<p style="margin:10px 0 0;display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#E8E6DF;color:#5E5E66;font-size:13px;font-weight:600">Demo mode: server not reachable, showing sample seats</p>`;
+  return `<p class="muted" style="margin:10px 0 0;font-size:13px">Loading seats…</p>`;
+}
+function noticeBox(){
+  if (!state.notice) return '';
+  return `<p role="alert" style="margin:0;padding:12px 16px;border-radius:12px;background:#FFF1EB;border:1.5px solid #FFB596;color:#7A2E10;font-size:15px">${esc(state.notice.text)}</p>`;
+}
 function totals(){
   const sub = selectedSeats().reduce((a,s)=>a+s.tier.price,0);
   const fee = state.selected.length * FEE;
@@ -414,7 +606,7 @@ pages.seats = () => {
   return stepsHeader(1,'event','Back to event') + `<div class="wrap row" style="padding-top:32px">
     <main class="grow" style="display:flex;flex-direction:column;gap:20px">
       <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
-        <div><h1 style="font-weight:800;font-size:44px;line-height:1;letter-spacing:-.03em">Pick your seats</h1><p class="muted" style="margin:8px 0 0">Low Tide Orchestra · Fri 20 Nov · Riverside Hall</p></div>
+        <div><h1 style="font-weight:800;font-size:44px;line-height:1;letter-spacing:-.03em">Pick your seats</h1><p class="muted" style="margin:8px 0 0">${live.eventName || 'Low Tide Orchestra'} · Fri 20 Nov · Riverside Hall</p>${modeBadge()}</div>
         <ul class="key" aria-label="Seat key">
           <li><i style="background:#fff;border:2.5px solid var(--orange)"></i>Available</li>
           <li><i style="background:var(--ink)"></i>Your pick</li>
@@ -422,13 +614,14 @@ pages.seats = () => {
           <li><i style="background:var(--field)"></i>Sold</li>
         </ul>
       </div>
+      ${noticeBox()}
       <div class="map"><div class="map-inner">
         <div class="stage">STAGE</div>
         ${TIERS.map(tier => `<section aria-label="${tier.name}" style="display:flex;flex-direction:column;align-items:center;gap:8px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><i class="sw" style="width:12px;height:12px;background:${tier.color}"></i><span class="mono muted" style="font-size:12px;letter-spacing:.14em">${tier.name.toUpperCase()} · £${tier.price}</span></div>
-          ${tier.rows.map(r => {
-            const ids = Array.from({length:tier.half*2},(_,i)=>r+'-'+(i+1));
-            return `<div class="srow"><span class="rl">${r}</span>${ids.slice(0,tier.half).map(seatBtn).join('')}<span style="width:34px"></span>${ids.slice(tier.half).map(seatBtn).join('')}<span class="rl">${r}</span></div>`;
+          ${tier.rowList.map(row => {
+            const half = Math.ceil(row.ids.length / 2);
+            return `<div class="srow"><span class="rl">${row.label}</span>${row.ids.slice(0,half).map(seatBtn).join('')}<span style="width:34px"></span>${row.ids.slice(half).map(seatBtn).join('')}<span class="rl">${row.label}</span></div>`;
           }).join('')}
         </section>`).join('')}
       </div></div>
@@ -444,15 +637,26 @@ pages.seats = () => {
         <div><dt>Booking fee</dt><dd>${money(t.fee)}</dd></div>
         <div style="margin-top:6px"><dt style="color:var(--paper);font-weight:600">Total</dt><dd class="big">${money(t.total)}</dd></div>
       </dl>
-      ${picks.length ? `<button class="btn btn-orange block" id="hold">Hold seats and continue ${icon.arrow}</button>` : `<span class="btn btn-off block" aria-disabled="true">Pick a seat to continue</span>`}
+      ${state.holding ? `<span class="btn btn-off block" aria-disabled="true" role="status">Holding your seats…</span>`
+        : picks.length ? `<button class="btn btn-orange block" id="hold">Hold seats and continue ${icon.arrow}</button>`
+        : `<span class="btn btn-off block" aria-disabled="true">Pick a seat to continue</span>`}
       <p style="margin:0;display:flex;gap:10px;font-size:13px;color:var(--dark-muted);line-height:1.5">${icon.clock}<span>We hold your seats for 10 minutes once you continue. Nobody else can buy them in that time.</span></p>
     </aside>
   </div>`;
 };
 
 pages.checkout = () => {
-  if (!state.holdEnds || !state.selected.length) { setTimeout(()=>go('seats')); return ''; }
+  if (live.mode === 'live') {
+    // Real mode: you can only be here with a hold the server gave you.
+    if (!state.hold) { setTimeout(() => go('seats')); return ''; }
+    state.selected = state.hold.ids.filter(id => SEATS[id]);
+    state.holdEnds = state.hold.expiresAt;
+  } else {
+    if (!state.selected.length) state.selected = ['F-11','F-12'];
+    if (!state.holdEnds || state.holdEnds < Date.now()) state.holdEnds = Date.now() + HOLD_SECONDS * 1000;
+  }
   const picks = selectedSeats(); const t = totals();
+  const until = new Date(state.holdEnds).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
   return stepsHeader(2,'seats','Change seats') + `
   <div class="banner" id="banner" role="status" aria-live="polite"><div class="in">
     <div style="display:flex;align-items:center;gap:14px">${icon.clock}<b id="bannerText"></b></div>
@@ -462,11 +666,12 @@ pages.checkout = () => {
   <div class="wrap row" style="padding-top:36px;gap:36px">
     <main class="grow" style="display:flex;flex-direction:column;gap:28px">
       <h1 style="font-weight:800;font-size:44px;line-height:1;letter-spacing:-.03em">Almost there</h1>
+      ${live.mode === 'live' ? `<p class="muted" style="margin:-12px 0 0;font-size:15px">Your seats are held on the server until <b style="color:var(--ink)">${until}</b>. Nobody else can buy them until then.</p>` : ''}
       <form id="pay" style="display:flex;flex-direction:column;gap:28px">
         <fieldset class="card" style="display:flex;flex-direction:column;gap:18px">
           <legend>Your details</legend>
           <div class="grid2"><div class="field"><label for="fn">First name</label><input class="input" id="fn" autocomplete="given-name"></div><div class="field"><label for="ln">Last name</label><input class="input" id="ln" autocomplete="family-name"></div></div>
-          <div class="field"><label for="ce">Email for your tickets</label><input class="input" id="ce" type="email" autocomplete="email" placeholder="you@example.com"></div>
+          <div class="field"><label for="ce">Email for your tickets</label><input class="input" id="ce" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(state.email || '')}"></div>
         </fieldset>
         <fieldset class="card" style="display:flex;flex-direction:column;gap:18px">
           <legend>Payment</legend>
@@ -513,8 +718,11 @@ function qrCells(seed){
 }
 
 pages.confirmation = () => {
+  if (!state.order) {
+    if (!state.selected.length) state.selected = ['F-11','F-12'];
+    state.order = { ref: 'USH-7Q4K-2291', seats: selectedSeats() };
+  }
   const o = state.order;
-  if (!o) { setTimeout(()=>go('home')); return ''; }
   const first = o.seats[0];
   return stepsHeader(3) + `<main class="wrap" style="max-width:1100px;display:flex;flex-direction:column;align-items:center;gap:40px;text-align:center;padding-top:56px">
     <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
@@ -638,6 +846,7 @@ function tick(){
   $('#bannerText').textContent = !left ? 'Your hold has expired and the seats are back on sale.'
     : urgent ? 'Less than 2 minutes left on your seats' : `Your ${state.selected.length} seat${state.selected.length>1?'s are':' is'} held for you`;
   if (!left) {
+    if (live.mode === 'live') state.hold = null;   // the server now treats these seats as available again
     $('#again').style.display = 'inline-flex';
     const b = $('#payBtn'); b.disabled = true; b.className = 'btn btn-off block'; b.textContent = 'Hold expired';
     clearInterval(timer);
@@ -647,17 +856,40 @@ function tick(){
 /* ---------- router ---------- */
 function render(){
   clearInterval(timer);
-  const route = (location.hash.replace('#/','') || 'login').split('?')[0];
+  const route = currentRoute;
   const page = pages[route] || pages.login;
   $('#app').innerHTML = page();
+  document.querySelectorAll('#screens button').forEach(b => {
+    const on = b.dataset.go === route;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+  });
   document.title = 'Ushr — ' + ({login:'Sign in',home:'Discover events',event:'Low Tide Orchestra',seats:'Choose your seats',checkout:'Checkout',confirmation:'You’re in',tickets:'My tickets',admin:'Admin'}[route] || 'Sign in');
   if (route === 'checkout' && state.holdEnds) { tick(); timer = setInterval(tick, 1000); }
+  if (route === 'seats') {
+    startSeatPolling();
+    // Just arrived on the seat map: fetch fresh statuses straight away instead of waiting 5s.
+    if (lastRoute !== 'seats' && live.mode === 'live') {
+      loadSeats().then(changed => { if (changed && currentRoute === 'seats') rerender(); });
+    }
+  } else stopSeatPolling();
+  lastRoute = route;
 }
-function rerender(){ const y = scrollY; render(); scrollTo(0, y); }
+let lastRoute = null;
+function rerender(){ const y = window.scrollY || 0; render(); try { scrollTo(0, y); } catch (e) {} }
 
-window.addEventListener('hashchange', () => { render(); scrollTo(0,0); });
+window.addEventListener('hashchange', () => {
+  const r = location.hash.replace('#/','').split('?')[0];
+  if (ROUTES.includes(r) && r !== currentRoute) go(r);
+});
 
 document.addEventListener('click', e => {
+  const link = e.target.closest('a[href^="#/"], [data-go]');
+  if (link) {
+    e.preventDefault();
+    go(link.dataset.go || link.getAttribute('href').slice(2));
+    return;
+  }
   const t = e.target.closest('[data-auth],[data-cat],[data-seat],[data-remove],[data-tab],#hold');
   if (!t) return;
   if (t.dataset.auth) { state.authMode = t.dataset.auth; return rerender(); }
@@ -665,26 +897,41 @@ document.addEventListener('click', e => {
   if (t.dataset.tab) { state.ticketsTab = t.dataset.tab; return rerender(); }
   if (t.dataset.seat || t.dataset.remove) {
     const id = t.dataset.seat || t.dataset.remove;
+    state.notice = null;
     if (state.selected.includes(id)) { state.selected = state.selected.filter(s => s !== id); state.limitHit = false; }
     else if (state.selected.length >= MAX) { state.limitHit = true; }
     else { state.selected = [...state.selected, id]; state.limitHit = false; }
     return rerender();
   }
-  if (t.id === 'hold') { state.holdEnds = Date.now() + HOLD_SECONDS * 1000; go('checkout'); }
+  if (t.id === 'hold') {
+    if (live.mode === 'live') { if (!state.holding) holdSelectedSeats(); return; }
+    state.holdEnds = Date.now() + HOLD_SECONDS * 1000; go('checkout');
+  }
 });
 
 document.addEventListener('submit', e => {
-  if (e.target.id === 'auth') { e.preventDefault(); go('home'); }
+  if (e.target.id === 'auth') {
+    e.preventDefault();
+    const email = (document.getElementById('email') || {}).value || '';
+    if (email.trim()) state.email = email.trim();
+    go('home');
+  }
   if (e.target.id === 'pay') {
     e.preventDefault();
     const ref = 'USH-' + Math.random().toString(36).slice(2,6).toUpperCase() + '-' + String(Math.floor(1000 + Math.random()*9000));
     state.order = { ref, seats: selectedSeats() };
     state.holdEnds = null;
+    state.hold = null;   // payment is still a demo: the seats stay held on the server until the hold expires
     go('confirmation');
   }
 });
 
 render();
+
+// Find out whether the real API is reachable, then redraw with real seats.
+loadSeats().then(() => {
+  if (['seats', 'event', 'checkout'].includes(currentRoute)) rerender();
+});
 </script>
 </body>
 </html>
