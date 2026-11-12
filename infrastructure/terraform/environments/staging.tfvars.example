@@ -1,0 +1,10 @@
+# Staging is the AWS test environment.
+environment            = "staging"
+db_multi_az             = false
+db_backup_retention_days = 1
+db_deletion_protection  = false
+db_skip_final_snapshot   = true
+ecr_force_delete         = true
+
+# Narrow this to the trusted tester/VPN CIDR before applying where possible.
+web_ingress_cidrs = ["0.0.0.0/0"]

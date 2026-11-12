@@ -26,7 +26,10 @@ locals {
   app_target = "${aws_instance.app.private_ip}:80"
 
   # Every file in monitoring-config/ is uploaded as is. prometheus.yml is rendered from a template.
-  monitoring_files = fileset("${path.module}/monitoring-config", "**")
+  monitoring_files = setsubtract(
+    fileset("${path.module}/monitoring-config", "**"),
+    ["alloy/config.alloy"]
+  )
 }
 
 # ---- Config bucket: the instance pulls its config from here, so config changes need no new host ----
@@ -65,8 +68,20 @@ resource "aws_s3_object" "monitoring_file" {
 resource "aws_s3_object" "prometheus_config" {
   bucket       = aws_s3_bucket.monitoring.id
   key          = "config/prometheus/prometheus.yml"
-  content      = templatefile("${path.module}/prometheus.yml.tftpl", { app_target = local.app_target })
+  content      = templatefile("${path.module}/prometheus.yml.tftpl", {
+    app_target  = local.app_target
+    environment = var.environment
+  })
   content_type = "text/yaml"
+}
+
+resource "aws_s3_object" "alloy_config" {
+  bucket       = aws_s3_bucket.monitoring.id
+  key          = "config/alloy/config.alloy"
+  content      = templatefile("${path.module}/monitoring-config/alloy/config.alloy", {
+    environment = var.environment
+  })
+  content_type = "text/plain"
 }
 
 # ---- Network ----
