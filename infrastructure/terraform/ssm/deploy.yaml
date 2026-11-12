@@ -63,6 +63,14 @@ mainSteps:
             return 1
           }
 
+          # Deploys only (not rollbacks: an older image cannot upgrade a newer database).
+          # Create/upgrade the database tables before the new version starts. Safe on every deploy:
+          # only migrations that have not run yet are applied. If this fails, the running app is left alone.
+          if [ "$ACTION" = "deploy" ]; then
+            docker run --rm --env-file "$ENVFILE" "$TARGET" flask db upgrade || { echo "migrations failed, keeping the current version"; exit 1; }
+            # Demo data. Skips itself if the data already exists, so it is also safe on every deploy.
+            docker run --rm --env-file "$ENVFILE" "$TARGET" flask seed || { echo "seed failed, keeping the current version"; exit 1; }
+          fi
           if start_app "$TARGET"; then
             if [ -n "$CURRENT" ] && [ "$CURRENT" != "$TARGET" ]; then echo "$CURRENT" > "$STATE/previous-image"; fi
             echo "$TARGET" > "$STATE/current-image"
