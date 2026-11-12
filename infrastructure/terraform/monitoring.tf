@@ -28,7 +28,10 @@ locals {
   # Every file in monitoring-config/ is uploaded as is. prometheus.yml is rendered from a template.
   monitoring_files = setsubtract(
     fileset("${path.module}/monitoring-config", "**"),
-    ["alloy/config.alloy"]
+    [
+      "alloy/config.alloy",
+      "grafana/dashboards/ticketing-availability.json"
+    ]
   )
 }
 
@@ -66,9 +69,9 @@ resource "aws_s3_object" "monitoring_file" {
 }
 
 resource "aws_s3_object" "prometheus_config" {
-  bucket       = aws_s3_bucket.monitoring.id
-  key          = "config/prometheus/prometheus.yml"
-  content      = templatefile("${path.module}/prometheus.yml.tftpl", {
+  bucket = aws_s3_bucket.monitoring.id
+  key    = "config/prometheus/prometheus.yml"
+  content = templatefile("${path.module}/prometheus.yml.tftpl", {
     app_target  = local.app_target
     environment = var.environment
   })
@@ -76,12 +79,23 @@ resource "aws_s3_object" "prometheus_config" {
 }
 
 resource "aws_s3_object" "alloy_config" {
-  bucket       = aws_s3_bucket.monitoring.id
-  key          = "config/alloy/config.alloy"
-  content      = templatefile("${path.module}/monitoring-config/alloy/config.alloy", {
+  bucket = aws_s3_bucket.monitoring.id
+  key    = "config/alloy/config.alloy"
+  content = templatefile("${path.module}/monitoring-config/alloy/config.alloy", {
     environment = var.environment
   })
   content_type = "text/plain"
+}
+
+resource "aws_s3_object" "grafana_dashboard" {
+  bucket = aws_s3_bucket.monitoring.id
+  key    = "config/grafana/dashboards/ticketing-availability.json"
+  content = replace(
+    file("${path.module}/monitoring-config/grafana/dashboards/ticketing-availability.json"),
+    "Ticketing - SRE Overview [local]",
+    "Ticketing - SRE Overview [${var.environment}]"
+  )
+  content_type = "application/json"
 }
 
 # ---- Network ----
