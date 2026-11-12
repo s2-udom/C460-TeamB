@@ -77,11 +77,22 @@ resource "aws_security_group" "monitoring" {
   vpc_id      = aws_vpc.main.id
 }
 
-resource "aws_vpc_security_group_egress_rule" "monitoring_all_out" {
+resource "aws_vpc_security_group_egress_rule" "monitoring_https_out" {
   security_group_id = aws_security_group.monitoring.id
   cidr_ipv4         = "0.0.0.0/0"
-  ip_protocol       = "-1"
-  description       = "Image pulls, S3, SSM and scraping the app"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+  description       = "HTTPS: image pulls, S3, SSM"
+}
+
+resource "aws_vpc_security_group_egress_rule" "monitoring_to_app" {
+  security_group_id            = aws_security_group.monitoring.id
+  referenced_security_group_id = aws_security_group.app.id
+  ip_protocol                  = "tcp"
+  from_port                    = 80
+  to_port                      = 80
+  description                  = "Scrape and probe the app"
 }
 
 # The app host accepts the monitoring host on port 80 (it already accepts the public web CIDRs).
