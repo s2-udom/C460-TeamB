@@ -114,6 +114,33 @@ pipeline {
             }
         }
 
+        stage('Backend unit and integration tests') {
+            steps {
+                sh '''
+                    set -eu
+                    docker run --rm --user "$(id -u):$(id -g)" \\
+                        -e PYTHONPATH=/work \\
+                        -v "$WORKSPACE:/work" \\
+                        -w /work \\
+                        python:3.12-slim \\
+                        sh -c '
+                            set -eu
+                            python -m venv /tmp/ticketing-ci-venv
+                            /tmp/ticketing-ci-venv/bin/pip install --no-cache-dir -q \\
+                                -r requirements.txt -r requirements-dev.txt
+                            mkdir -p reports
+                            /tmp/ticketing-ci-venv/bin/pytest -q \\
+                                --junitxml=reports/pytest.xml
+                        '
+                '''
+            }
+            post {
+                always {
+                    junit testResults: 'reports/pytest.xml', allowEmptyResults: false
+                }
+            }
+        }
+
         stage('Trivy repository scan') {
             // Scans the source tree. The script checks the installed Trivy is the exact
             // version in ci/trivy/version.txt, so the agent and developer laptops agree.
