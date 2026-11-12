@@ -85,7 +85,8 @@ resource "aws_vpc_security_group_egress_rule" "monitoring_https_out" {
   to_port           = 443
   description       = "HTTPS: image pulls, S3, SSM"
 }
-
+# Accepted risk: needs HTTPS to Docker Hub, S3 and SSM, and there is no NAT gateway or prefix list to narrow it.
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "monitoring_to_app" {
   security_group_id            = aws_security_group.monitoring.id
   referenced_security_group_id = aws_security_group.app.id
