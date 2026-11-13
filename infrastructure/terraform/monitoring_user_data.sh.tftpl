@@ -1,0 +1,60 @@
+#!/bin/bash
+# First-boot setup for the monitoring host (Amazon Linux 2023). Runs once via cloud-init.
+# If something looks wrong, read /var/log/cloud-init-output.log on the host.
+set -euxo pipefail
+
+dnf install -y docker
+systemctl enable --now docker
+
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+docker compose version
+
+install -d -m 0755 /opt/monitoring /opt/monitoring/secrets
+
+# Helper: pulls the config from S3, picks the Alertmanager config, and (re)starts the stack.
+# Run it again after every "terraform apply" that changes monitoring-config/:
+#   sudo /usr/local/bin/monitoring-sync
+cat > /usr/local/bin/monitoring-sync <<'SYNC'
+#!/bin/bash
+set -euo pipefail
+D=/opt/monitoring
+REGION="${region}"
+
+aws s3 sync "s3://${bucket}/config/" "$D/config/" --delete --region "$REGION" --only-show-errors
+
+# Grafana admin password: created once on this host, never stored in Terraform or Git.
+umask 077
+if [ ! -s "$D/secrets/grafana_admin_password" ]; then
+  openssl rand -base64 24 | tr -d '/+=\n' > "$D/secrets/grafana_admin_password"
+fi
+chown 472:472 "$D/secrets/grafana_admin_password"
+chmod 0400 "$D/secrets/grafana_admin_password"
+
+# Slack webhook (optional). Without it, alerts still evaluate but go nowhere.
+if aws ssm get-parameter --name "${slack_parameter}" --with-decryption --region "$REGION" \
+     --query Parameter.Value --output text > "$D/secrets/slack_webhook_url.new" 2>/dev/null \
+   && [ -s "$D/secrets/slack_webhook_url.new" ]; then
+  mv "$D/secrets/slack_webhook_url.new" "$D/secrets/slack_webhook_url"
+  cp "$D/config/alertmanager/alertmanager-slack.yml" "$D/config/alertmanager/active.yml"
+  echo "Alertmanager: Slack delivery enabled"
+else
+  rm -f "$D/secrets/slack_webhook_url.new"
+  : > "$D/secrets/slack_webhook_url"
+  cp "$D/config/alertmanager/alertmanager-default.yml" "$D/config/alertmanager/active.yml"
+  echo "Alertmanager: no Slack webhook in ${slack_parameter}, alerts are not delivered"
+fi
+chown 65534:65534 "$D/secrets/slack_webhook_url"
+chmod 0400 "$D/secrets/slack_webhook_url"
+
+cd "$D/config"
+docker compose up -d --remove-orphans
+# Bind-mounted config files are only read at start, so restart to pick up changes.
+docker compose restart prometheus alertmanager blackbox-exporter loki alloy grafana
+docker compose ps
+SYNC
+chmod 0755 /usr/local/bin/monitoring-sync
+
+/usr/local/bin/monitoring-sync

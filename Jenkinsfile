@@ -38,7 +38,7 @@ def runDeployDocument(String instanceId, String parameters) {
 }
 
 pipeline {
-    // A separate agent, so the controller never runs build work.
+    // Run work on a separate agent so the Jenkins controller is not used as a build worker.
     agent { label 'ticketing-agent' }
 
     options {
@@ -95,8 +95,8 @@ pipeline {
                 '''
             }
         }
-
-        stage('Install dependencies') {
+     
+        stage('Install frontend validation dependencies') {
             steps {
                 sh 'npm ci'
             }
@@ -111,6 +111,33 @@ pipeline {
         stage('Frontend validation') {
             steps {
                 sh 'npm test'
+            }
+        }
+
+        stage('Backend unit and integration tests') {
+            steps {
+                sh '''
+                    set -eu
+                    docker run --rm --user "$(id -u):$(id -g)" \\
+                        -e PYTHONPATH=/work \\
+                        -v "$WORKSPACE:/work" \\
+                        -w /work \\
+                        python:3.12-slim \\
+                        sh -c '
+                            set -eu
+                            python -m venv /tmp/ticketing-ci-venv
+                            /tmp/ticketing-ci-venv/bin/pip install --no-cache-dir -q \\
+                                -r requirements.txt -r requirements-dev.txt
+                            mkdir -p reports
+                            /tmp/ticketing-ci-venv/bin/pytest -q \\
+                                --junitxml=reports/pytest.xml
+                        '
+                '''
+            }
+            post {
+                always {
+                    junit testResults: 'reports/pytest.xml', allowEmptyResults: false
+                }
             }
         }
 

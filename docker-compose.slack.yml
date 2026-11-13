@@ -1,0 +1,9 @@
+services:
+  alertmanager:
+    command:
+      - --config.file=/etc/alertmanager/alertmanager-slack.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./monitoring/alertmanager/alertmanager-slack.yml:/etc/alertmanager/alertmanager-slack.yml:ro
+      - ./monitoring/alertmanager/templates:/etc/alertmanager/templates:ro
+      - ./secrets/slack_webhook_url:/etc/alertmanager/slack_webhook_url:ro

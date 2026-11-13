@@ -1,0 +1,26 @@
+{{ define "ticketing.slack.title" -}}
+{{ if eq .Status "firing" }}:rotating_light: [FIRING] {{ .CommonAnnotations.summary }}{{ else }}:white_check_mark: [RESOLVED] Ticketing application is ready again{{ end }}
+{{- end }}
+
+{{ define "ticketing.slack.text" -}}
+*Severity:* `{{ .CommonLabels.severity }}`
+*Alert:* `{{ .CommonLabels.alertname }}`
+*Service:* `{{ .CommonLabels.service }}`
+*Environment:* `{{ .CommonLabels.environment }}`
+
+{{ range .Alerts.Firing -}}
+*Endpoint:* `{{ .Labels.instance }}`
+*Job:* `{{ .Labels.job }}`
+*Probe:* `{{ .Labels.probe }}`
+*Details:* {{ .Annotations.description }}
+*Suggested action:* {{ .Annotations.runbook }}
+{{ end -}}
+{{ range .Alerts.Resolved -}}
+*Status:* The endpoint is responding normally again.
+*Recovered:* `{{ .Labels.instance }}`
+*Job:* `{{ .Labels.job }}`
+{{ end -}}
+{{ if .CommonAnnotations.dashboard }}
+*Dashboard:* <{{ .CommonAnnotations.dashboard }}|Open Grafana dashboard>
+{{ end -}}
+{{- end }}
